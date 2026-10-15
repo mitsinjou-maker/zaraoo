@@ -1,15 +1,16 @@
-import { ActionIcon, Alert, Badge, Button, Group, Menu, Modal, Select, Stack, Table, TextInput } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Group, Menu, Modal, SegmentedControl, Select, Stack, Table, TextInput } from "@mantine/core";
 import { useState } from "react";
-import {
-  COULEURS_LOGEMENTS,
-  nouvelId,
-  relevesVides,
-  type Analyse,
-  type BrouillonCycle,
-  type OccupationSaisie,
-  type StatutPresence,
-} from "../domaine/brouillon";
+import { type Analyse, type BrouillonCycle, type OccupationSaisie, type StatutPresence } from "../domaine/brouillon";
 import { dateFr, poids as formatPoids } from "../domaine/format";
+import {
+  ajouterLogement,
+  codeSuivant,
+  couleurSuivante,
+  enregistrerArrivee,
+  occupantEnPlace,
+  occupationActuelle,
+  verifierArrivee,
+} from "../domaine/logements";
 import { ChampDate } from "./Champs";
 import { PastilleLogement, Section } from "./Section";
 
@@ -25,11 +26,6 @@ const STATUTS: Record<StatutPresence, { texte: string; couleur: string }> = {
   sortant: { texte: "Sortant", couleur: "orange" },
   passage: { texte: "Entrant et sortant", couleur: "orange" },
 };
-
-/** Occupation encore en cours à la date `date` dans le logement. */
-function occupantEnPlace(b: BrouillonCycle, logementId: string, date: string): OccupationSaisie | undefined {
-  return b.occupations.find((o) => o.logementId === logementId && o.entree < date && (o.sortie === null || o.sortie > date));
-}
 
 export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
   const [modale, setModale] = useState<"arrivee" | "depart" | null>(null);
@@ -48,13 +44,8 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
   const participants = new Set(lignes.map((o) => o.occupation.occupantId)).size;
   const sommePoids = analyse.occupations.reduce((s, o) => s + o.poids, 0);
 
-  const ajouterLogement = () =>
-    modifier((b) => {
-      const numeros = b.logements.map((l) => Number(l.id.replace(/\D/g, "")) || 0);
-      const id = `L${String(Math.max(0, ...numeros) + 1).padStart(2, "0")}`;
-      b.logements.push({ id, couleur: COULEURS_LOGEMENTS[b.logements.length % COULEURS_LOGEMENTS.length] });
-      b.releves[id] = relevesVides();
-    });
+  // Ajout rapide ; le code, la description et le n° de compteur se modifient dans la page Logements.
+  const ajouterRapidement = () => modifier((b) => ajouterLogement(b, { id: codeSuivant(b), couleur: couleurSuivante(b) }));
 
   return (
     <Section
@@ -69,7 +60,7 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
           <Button size="xs" variant="default" onClick={() => setModale("depart")}>
             − Départ
           </Button>
-          <Button size="xs" variant="default" onClick={ajouterLogement}>
+          <Button size="xs" variant="default" onClick={ajouterRapidement}>
             + Logement
           </Button>
         </Group>
@@ -182,48 +173,91 @@ interface PropsModale {
 }
 
 function ModaleArrivee({ ouverte, fermer, brouillon, modifier }: PropsModale) {
+  const [type, setType] = useState<"nouveau" | "interne">("nouveau");
   const [nom, setNom] = useState("");
+  const [occupantId, setOccupantId] = useState<string | null>(null);
   const [logementId, setLogementId] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
-  const enPlace = logementId && date ? occupantEnPlace(brouillon, logementId, date) : undefined;
-  const complet = nom.trim() !== "" && logementId !== null && date !== null;
 
-  const valider = () => {
-    if (nom.trim() === "" || logementId === null || date === null) return;
-    modifier((b) => {
-      const precedent = occupantEnPlace(b, logementId, date);
-      if (precedent) precedent.sortie = date;
-      b.occupations.push({ id: nouvelId(), occupantId: nouvelId(), nom: nom.trim(), logementId, entree: date, sortie: null });
-    });
+  // Foyers qui occupent actuellement un logement du bâtiment (un seul choix par foyer).
+  const foyersPresents = brouillon.occupations
+    .filter((o) => o.sortie === null)
+    .filter((o, i, liste) => liste.findIndex((x) => x.occupantId === o.occupantId) === i);
+  const arrivee =
+    type === "interne" ? { logementId: logementId ?? "", date: date ?? "", occupantId: occupantId ?? "" } : { logementId: logementId ?? "", date: date ?? "", nom };
+  const complet = logementId !== null && date !== null && (type === "interne" ? occupantId !== null : nom.trim() !== "");
+  const erreur = complet ? verifierArrivee(brouillon, arrivee) : null;
+  const enPlace = logementId && date ? occupantEnPlace(brouillon, logementId, date) : undefined;
+  const quitte = type === "interne" && occupantId ? occupationActuelle(brouillon, occupantId) : undefined;
+
+  const reinitialiser = () => {
     setNom("");
+    setOccupantId(null);
     setLogementId(null);
     setDate(null);
+  };
+  const valider = () => {
+    if (!complet || erreur) return;
+    modifier((b) => enregistrerArrivee(b, arrivee));
+    reinitialiser();
     fermer();
   };
 
   return (
     <Modal opened={ouverte} onClose={fermer} title="Enregistrer une arrivée">
       <Stack>
-        <TextInput label="Nom du foyer" value={nom} onChange={(e) => setNom(e.currentTarget.value)} data-autofocus />
+        <SegmentedControl
+          fullWidth
+          radius={0}
+          value={type}
+          onChange={(v) => setType(v as "nouveau" | "interne")}
+          data={[
+            { value: "nouveau", label: "Nouveau foyer" },
+            { value: "interne", label: "Foyer du bâtiment" },
+          ]}
+        />
+        {type === "nouveau" ? (
+          <TextInput label="Nom du foyer" value={nom} onChange={(e) => setNom(e.currentTarget.value)} data-autofocus />
+        ) : (
+          <Select
+            label="Foyer qui change de logement"
+            description="Il garde ses droits sur tout le cycle (un seul participant)."
+            data={foyersPresents.map((o) => ({ value: o.occupantId, label: `${o.nom} (actuellement en ${o.logementId})` }))}
+            value={occupantId}
+            onChange={setOccupantId}
+            placeholder="Choisir"
+            searchable
+          />
+        )}
         <Select
-          label="Logement"
-          data={brouillon.logements.map((l) => l.id)}
+          label={type === "interne" ? "Nouveau logement" : "Logement"}
+          data={brouillon.logements.map((l) => ({ value: l.id, label: l.nom ? `${l.id} · ${l.nom}` : l.id }))}
           value={logementId}
           onChange={setLogementId}
           placeholder="Choisir"
           searchable
         />
         <ChampDate label="Date d'arrivée" valeur={date} onValeur={setDate} />
-        {enPlace && (
+        {quitte && date && !erreur && (
+          <Alert color="blue" variant="light" radius={0}>
+            {quitte.nom} quittera {quitte.logementId} le {dateFr(date)}. Relevez les deux sous-compteurs ce jour-là.
+          </Alert>
+        )}
+        {enPlace && !erreur && (
           <Alert color="orange" variant="light" radius={0}>
             {enPlace.nom} occupe ce logement : son départ sera enregistré le {dateFr(date)}.
+          </Alert>
+        )}
+        {erreur && (
+          <Alert color="red" variant="light" radius={0}>
+            {erreur}
           </Alert>
         )}
         <Group justify="flex-end">
           <Button variant="default" onClick={fermer}>
             Annuler
           </Button>
-          <Button onClick={valider} disabled={!complet}>
+          <Button onClick={valider} disabled={!complet || erreur !== null}>
             Enregistrer
           </Button>
         </Group>

@@ -23,7 +23,19 @@ const autre = () => env.authenticatedContext("autre").firestore();
 const anonyme = () => env.unauthenticatedContext().firestore();
 const brouillon = (db: ReturnType<typeof admin>, uid = "admin") => db.doc(`utilisateurs/${uid}/brouillon/courant`);
 const cycle = (db: ReturnType<typeof admin>, id = "2026-09-25-abc", uid = "admin") => db.doc(`utilisateurs/${uid}/cycles/${id}`);
-const donneesCycle = (id = "2026-09-25-abc", ok = true) => ({ id, version: 1, mois: "Septembre 2026", resultat: { ok } });
+const JOUR = 86_400_000;
+const donneesCycle = (id = "2026-09-25-abc", ok = true, valideLeMs: number | string = Date.now()) => ({
+  id,
+  version: 1,
+  mois: "Septembre 2026",
+  valideLeMs,
+  resultat: { ok },
+});
+
+/** Place un cycle directement en base, sans passer par les règles (pour simuler un cycle ancien). */
+async function placer(donnees: ReturnType<typeof donneesCycle>) {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc(`utilisateurs/admin/cycles/${donnees.id}`).set(donnees));
+}
 
 describe("brouillon du cycle en cours", () => {
   it("l'admin lit et écrit le sien", async () => {
@@ -49,16 +61,28 @@ describe("cycles validés", () => {
     await assertSucceeds(cycle(admin()).get());
   });
 
-  it("un cycle validé est figé : ni modification, ni remplacement, ni suppression", async () => {
+  it("un cycle validé est figé : ni modification, ni remplacement", async () => {
     await assertSucceeds(cycle(admin()).set(donneesCycle()));
     await assertFails(cycle(admin()).update({ mois: "Octobre 2026" }));
     await assertFails(cycle(admin()).set(donneesCycle()));
-    await assertFails(cycle(admin()).delete());
   });
 
-  it("refuse un cycle invalide ou mal identifié", async () => {
+  it("la validation peut être annulée (suppression) dans les 30 jours", async () => {
+    await placer(donneesCycle("recent", true, Date.now() - 29 * JOUR));
+    await assertSucceeds(cycle(admin(), "recent").delete());
+  });
+
+  it("au-delà de 30 jours, ou pour un autre compte, la suppression est refusée", async () => {
+    await placer(donneesCycle("ancien", true, Date.now() - 31 * JOUR));
+    await assertFails(cycle(admin(), "ancien").delete());
+    await placer(donneesCycle("recent", true, Date.now()));
+    await assertFails(cycle(autre(), "recent", "admin").delete());
+  });
+
+  it("refuse un cycle invalide, mal identifié ou sans date de validation", async () => {
     await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", false)));
     await assertFails(cycle(admin(), "autre-id").set(donneesCycle("2026-09-25-abc")));
+    await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", true, "hier")));
   });
 
   it("personne d'autre n'y a accès", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyserBrouillon } from "./brouillon";
-import { brouillonSuivant, figerCycle, resumer } from "./cycles";
+import { brouillonSuivant, figerCycle, peutEtreAnnule, resumer } from "./cycles";
 import { empreinte } from "./empreinte";
 import { brouillonExemple } from "./exemple";
 
@@ -21,6 +21,7 @@ describe("figerCycle", () => {
       totalFacture: 200462.8,
       nbFoyers: 5,
       valideLe: "2026-10-01T08:00:00.000Z",
+      valideLeMs: Date.parse("2026-10-01T08:00:00Z"),
     });
     // Copie indépendante : modifier le brouillon ensuite ne change pas le cycle figé.
     b.facture.mois = "modifié";
@@ -29,6 +30,13 @@ describe("figerCycle", () => {
 
   it("refuse un cycle avec des erreurs", () => {
     expect(() => figerCycle(b, { ...resultat, ok: false })).toThrow();
+  });
+
+  it("seule la dernière validation, de moins de 30 jours, peut être annulée", () => {
+    const c = figerCycle(brouillonExemple(), resultat, new Date("2026-10-01T08:00:00Z"));
+    expect(peutEtreAnnule(c, c.id, new Date("2026-10-30T08:00:00Z"))).toBe(true);
+    expect(peutEtreAnnule(c, c.id, new Date("2026-10-31T08:00:01Z"))).toBe(false);
+    expect(peutEtreAnnule(c, "un-cycle-plus-recent", new Date("2026-10-02T08:00:00Z"))).toBe(false);
   });
 });
 

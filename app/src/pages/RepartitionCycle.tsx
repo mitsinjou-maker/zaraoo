@@ -16,7 +16,13 @@ type Vue = "grille" | "tableau";
 /** Répartition du cycle en cours (modifiable, à valider) ou d'un cycle validé (figé). */
 export type ModeRepartition =
   | { type: "brouillon"; versSaisie: () => void; valider: () => Promise<void>; lieu: Depot["lieu"] }
-  | { type: "archive"; valideLe: string; retour: () => void };
+  | {
+      type: "archive";
+      valideLe: string;
+      retour: () => void;
+      /** Présent si cette validation peut encore être annulée (dernier cycle, moins de 30 jours). */
+      annulation?: { saisiePerdue: boolean; annuler: () => Promise<void> };
+    };
 
 interface Props {
   brouillon: BrouillonCycle;
@@ -29,6 +35,7 @@ interface Props {
 export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }: Props) {
   const resultat = analyse.resultat!;
   const [confirmation, setConfirmation] = useState(false);
+  const [confirmationAnnulation, setConfirmationAnnulation] = useState(false);
   const [validation, setValidation] = useState<{ enCours: boolean; erreur: string | null }>({ enCours: false, erreur: null });
   const { foyers, vides } = useMemo(() => foyersDuCycle(brouillon, analyse), [brouillon, analyse]);
   const [vue, setVue] = useState<Vue>("grille");
@@ -66,6 +73,16 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
     setValidation({ enCours: true, erreur: null });
     try {
       await mode.valider();
+    } catch (e) {
+      setValidation({ enCours: false, erreur: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
+  const annulerValidation = async () => {
+    if (mode.type !== "archive" || !mode.annulation) return;
+    setValidation({ enCours: true, erreur: null });
+    try {
+      await mode.annulation.annuler();
     } catch (e) {
       setValidation({ enCours: false, erreur: e instanceof Error ? e.message : String(e) });
     }
@@ -143,6 +160,11 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
             <Button variant="default" onClick={mode.retour}>
               ← Historique
             </Button>
+            {mode.annulation && (
+              <Button variant="default" color="red" className="pj-bandeau-action" onClick={() => setConfirmationAnnulation(true)}>
+                Annuler la validation
+              </Button>
+            )}
           </div>
         )}
 
@@ -274,6 +296,35 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
           </Button>
           <Button loading={validation.enCours} onClick={valider}>
             Valider et figer
+          </Button>
+        </Group>
+      </Modal>
+
+      <Modal
+        opened={confirmationAnnulation}
+        onClose={() => !validation.enCours && setConfirmationAnnulation(false)}
+        title="Annuler la validation"
+      >
+        <p style={{ marginTop: 0 }}>
+          Le cycle <b>{brouillon.facture.mois}</b> redeviendra le cycle en cours, modifiable, et disparaîtra de l'historique
+          jusqu'à sa prochaine validation.
+        </p>
+        {mode.type === "archive" && mode.annulation?.saisiePerdue && (
+          <Alert color="orange" variant="light" radius={0} mb="sm">
+            Le cycle suivant a déjà été commencé : cette saisie sera perdue et remplacée par ce cycle.
+          </Alert>
+        )}
+        {validation.erreur && (
+          <Alert color="red" variant="light" radius={0} mb="sm">
+            L'annulation a échoué : {validation.erreur}
+          </Alert>
+        )}
+        <Group justify="flex-end">
+          <Button variant="default" disabled={validation.enCours} onClick={() => setConfirmationAnnulation(false)}>
+            Garder la validation
+          </Button>
+          <Button color="red" loading={validation.enCours} onClick={annulerValidation}>
+            Annuler la validation
           </Button>
         </Group>
       </Modal>

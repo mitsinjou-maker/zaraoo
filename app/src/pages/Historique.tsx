@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { EnTete, type Compte, type Rubrique } from "../composants/EnTete";
 import type { BrouillonCycle } from "../domaine/brouillon";
 import type { ResumeCycle } from "../domaine/cycles";
+import { sauvegarde, tableauCsv, telecharger } from "../domaine/export";
 import { aPayer, dateFr, entier } from "../domaine/format";
 import type { Depot } from "../donnees/depot";
 
@@ -18,6 +19,25 @@ interface Props {
 export function Historique({ depot, brouillon, naviguer, ouvrir, compte }: Props) {
   const [cycles, setCycles] = useState<ResumeCycle[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [export_, setExport] = useState<"csv" | "json" | null>(null);
+
+  const exporter = async (format: "csv" | "json") => {
+    setExport(format);
+    setErreur(null);
+    try {
+      const tous = await depot.chargerTousLesCycles();
+      const jour = new Date().toISOString().slice(0, 10);
+      if (format === "csv") {
+        telecharger(`partage-jirama-${jour}.csv`, tableauCsv(tous), "text/csv;charset=utf-8");
+      } else {
+        telecharger(`partage-jirama-sauvegarde-${jour}.json`, JSON.stringify(sauvegarde(tous, brouillon), null, 2), "application/json");
+      }
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExport(null);
+    }
+  };
 
   useEffect(() => {
     let actif = true;
@@ -55,12 +75,26 @@ export function Historique({ depot, brouillon, naviguer, ouvrir, compte }: Props
           <span>
             01 / <b>Cycles validés</b>
           </span>
-          <span>Figés : ils ne peuvent plus être modifiés</span>
+          <span>Figés ; seule la dernière validation peut être annulée, dans les 30 jours</span>
         </div>
+
+        {cycles && cycles.length > 0 && (
+          <div className="pj-outils" style={{ marginBottom: 12 }}>
+            <span className="pj-aide" style={{ flex: 1, minWidth: 220 }}>
+              Gardez une copie sur votre ordinateur : Firebase ne fait pas de sauvegarde automatique avec l'offre gratuite.
+            </span>
+            <Button variant="default" loading={export_ === "csv"} onClick={() => exporter("csv")}>
+              Tableau Excel (.csv)
+            </Button>
+            <Button loading={export_ === "json"} onClick={() => exporter("json")}>
+              Sauvegarde complète (.json)
+            </Button>
+          </div>
+        )}
 
         {erreur && (
           <Alert color="red" variant="light" radius={0}>
-            Impossible de charger l'historique : {erreur}
+            {cycles === null ? "Impossible de charger l'historique" : "L'export a échoué"} : {erreur}
           </Alert>
         )}
         {!erreur && cycles === null && (

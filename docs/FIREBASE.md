@@ -49,8 +49,9 @@ Durée : environ 20 minutes. Offre gratuite « Spark » : largement suffisante (
 
 ## 5. Publier les règles de sécurité
 
-Les règles sont dans [`firestore.rules`](../firestore.rules) : chaque admin ne voit que ses données, et un
-cycle validé ne peut **jamais** être modifié ni supprimé.
+Les règles sont dans [`firestore.rules`](../firestore.rules) : chaque admin ne voit que ses données, un
+cycle validé ne peut **jamais** être modifié, et sa validation ne peut être annulée que dans les 30 jours.
+Après une modification de `firestore.rules`, republiez-les (console ou `npm run deployer`).
 
 **Le plus simple** : Firestore Database → onglet **Règles** → remplacez tout le contenu par celui de
 `firestore.rules` → **Publier**.
@@ -125,4 +126,4 @@ npm run test:regles
 | Chemin Firestore | Contenu | Règle |
 |---|---|---|
 | `utilisateurs/{uid}/brouillon/courant` | cycle en cours de saisie | lecture et écriture par l'admin |
-| `utilisateurs/{uid}/cycles/{id}` | cycle validé : brouillon et résultat figés | création seulement ; ni modification, ni suppression |
+| `utilisateurs/{uid}/cycles/{id}` | cycle validé : brouillon et résultat figés | création ; jamais de modification ; suppression (annulation de la validation) seulement dans les 30 jours qui suivent |

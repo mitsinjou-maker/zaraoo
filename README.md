@@ -48,7 +48,10 @@ npm run test:regles
 - **Répartition** (`app/src/pages/RepartitionCycle.tsx`) — résumé de la facture, cartes par foyer ou tableau, filtres,
   tri, fiches PDF par foyer (`app/src/pdf/fiches.ts`, pdfmake chargé seulement au moment de l'export) et
   **validation du cycle** : il est figé et le cycle suivant est préparé (dates et index de départ, occupants restants).
-- **Historique** (`app/src/pages/Historique.tsx`) — cycles validés, consultables en lecture seule.
+- **Historique** (`app/src/pages/Historique.tsx`) — cycles validés, consultables en lecture seule ; export Excel (.csv)
+  et sauvegarde complète (.json) ; la dernière validation peut être annulée dans les 30 jours.
+- **Logements** (`app/src/pages/Logements.tsx`) — code, description, n° de sous-compteur, couleur ; ajout, modification,
+  suppression d'un logement sans occupant.
 
 Données (`app/src/donnees`) :
 - **avec Firebase** (`app/.env.local` rempli, voir [docs/FIREBASE.md](docs/FIREBASE.md)) : connexion de l'admin,

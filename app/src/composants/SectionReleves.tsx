@@ -111,6 +111,11 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
       <div className="pj-compteur-tete">
         <PastilleLogement id={logement.id} couleur={logement.couleur} />
         <h4>{vide ? "Logement vide" : occupations.map((o) => o.nom).join(" → ")}</h4>
+        {(logement.nom || logement.numeroCompteur) && (
+          <span className="pj-gris" style={{ fontSize: 12.5 }}>
+            {[logement.nom, logement.numeroCompteur && `compteur ${logement.numeroCompteur}`].filter(Boolean).join(" · ")}
+          </span>
+        )}
         {occupations.length > 1 && <Badge color="orange">Déménagement</Badge>}
         {vide && <Badge color="gray">Vide</Badge>}
         <span className="pj-num pj-gris" style={{ marginLeft: "auto" }}>

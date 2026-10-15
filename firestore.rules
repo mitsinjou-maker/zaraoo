@@ -2,8 +2,8 @@ rules_version = '2';
 
 // Partage JIRAMA — chaque admin ne voit que ses propres données.
 // - utilisateurs/{uid}/brouillon/courant : cycle en cours de saisie (lecture et écriture libres pour l'admin) ;
-// - utilisateurs/{uid}/cycles/{id}       : cycles validés, figés (création seulement, jamais de modification
-//                                          ni de suppression).
+// - utilisateurs/{uid}/cycles/{id}       : cycles validés, figés. Jamais modifiés ; supprimés seulement pour
+//                                          annuler une validation, dans les 30 jours qui la suivent.
 service cloud.firestore {
   match /databases/{database}/documents {
     function estAdmin(uid) {
@@ -20,8 +20,12 @@ service cloud.firestore {
         allow create: if estAdmin(uid)
           && request.resource.data.id == cycleId
           && request.resource.data.version == 1
-          && request.resource.data.resultat.ok == true;
-        allow update, delete: if false;
+          && request.resource.data.resultat.ok == true
+          && request.resource.data.valideLeMs is int;
+        allow update: if false;
+        allow delete: if estAdmin(uid)
+          && resource.data.valideLeMs is int
+          && request.time < timestamp.value(resource.data.valideLeMs) + duration.value(30, 'd');
       }
     }
   }

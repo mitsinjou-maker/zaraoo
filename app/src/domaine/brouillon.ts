@@ -18,6 +18,10 @@ export interface Logement {
   /** Code affiché, par exemple « L01 ». */
   id: string;
   couleur: string;
+  /** Description libre, par exemple « RDC gauche ». */
+  nom?: string;
+  /** Numéro inscrit sur le sous-compteur. */
+  numeroCompteur?: string;
 }
 
 export interface OccupationSaisie {

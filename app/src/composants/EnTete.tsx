@@ -1,7 +1,7 @@
 import { ActionIcon, Menu, Tooltip } from "@mantine/core";
 import type { ReactNode } from "react";
 
-export type Rubrique = "saisie" | "historique";
+export type Rubrique = "saisie" | "historique" | "logements";
 
 export interface Compte {
   /** Adresse de l'admin connecté, ou `null` en mode local (sans compte). */
@@ -19,8 +19,9 @@ interface Props {
 const RUBRIQUES: { cle: Rubrique; nom: string }[] = [
   { cle: "saisie", nom: "Cycle en cours" },
   { cle: "historique", nom: "Historique" },
+  { cle: "logements", nom: "Logements" },
 ];
-const A_VENIR = ["Foyers", "Logements", "Tarifs"];
+const A_VENIR = ["Tarifs"];
 
 export function EnTete({ actif, naviguer, droite, compte }: Props) {
   return (

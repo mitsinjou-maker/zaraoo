@@ -1,15 +1,22 @@
 import { Alert, Button, Loader } from "@mantine/core";
 import { useEffect, useMemo, useState } from "react";
 import type { Compte, Rubrique } from "../composants/EnTete";
-import { analyserBrouillon } from "../domaine/brouillon";
-import { brouillonSuivant, figerCycle, type CycleValide } from "../domaine/cycles";
+import { analyserBrouillon, type BrouillonCycle } from "../domaine/brouillon";
+import { brouillonSuivant, figerCycle, peutEtreAnnule, type CycleValide } from "../domaine/cycles";
+import { empreinte } from "../domaine/empreinte";
 import type { Depot } from "../donnees/depot";
 import { useBrouillon } from "../hooks/useBrouillon";
 import { Historique } from "./Historique";
+import { Logements } from "./Logements";
 import { RepartitionCycle } from "./RepartitionCycle";
 import { SaisieCycle } from "./SaisieCycle";
 
-type Vue = { type: "saisie" } | { type: "repartition" } | { type: "historique" } | { type: "archive"; id: string };
+type Vue =
+  | { type: "saisie" }
+  | { type: "repartition" }
+  | { type: "historique" }
+  | { type: "logements" }
+  | { type: "archive"; id: string };
 
 function Attente({ texte }: { texte: string }) {
   return (
@@ -31,7 +38,7 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
     window.scrollTo(0, 0);
   }, [vue]);
 
-  const naviguer = (r: Rubrique) => setVue(r === "historique" ? { type: "historique" } : { type: "saisie" });
+  const naviguer = (r: Rubrique) => setVue({ type: r });
 
   if (etat === "erreur") {
     return (
@@ -59,8 +66,25 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
     );
   }
 
+  if (vue.type === "logements") {
+    return <Logements brouillon={brouillon} modifier={modifier} naviguer={naviguer} compte={compte} />;
+  }
+
   if (vue.type === "archive") {
-    return <CycleArchive key={vue.id} depot={depot} id={vue.id} naviguer={naviguer} compte={compte} />;
+    return (
+      <CycleArchive
+        key={vue.id}
+        depot={depot}
+        id={vue.id}
+        brouillonEnCours={brouillon}
+        apresAnnulation={(b) => {
+          remplacer(b, true);
+          setVue({ type: "saisie" });
+        }}
+        naviguer={naviguer}
+        compte={compte}
+      />
+    );
   }
 
   if (vue.type === "repartition" && analyse.resultat?.ok) {
@@ -98,16 +122,30 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
   );
 }
 
+interface PropsArchive {
+  depot: Depot;
+  id: string;
+  /** Brouillon actuel : sert à prévenir que l'annulation remplacera la saisie du cycle suivant. */
+  brouillonEnCours: BrouillonCycle;
+  apresAnnulation: (brouillonRestaure: BrouillonCycle) => void;
+  naviguer: (r: Rubrique) => void;
+  compte: Compte;
+}
+
 /** Cycle validé, en lecture seule : les montants affichés sont ceux enregistrés à la validation. */
-function CycleArchive({ depot, id, naviguer, compte }: { depot: Depot; id: string; naviguer: (r: Rubrique) => void; compte: Compte }) {
+function CycleArchive({ depot, id, brouillonEnCours, apresAnnulation, naviguer, compte }: PropsArchive) {
   const [cycle, setCycle] = useState<CycleValide | null | undefined>(undefined);
+  const [plusRecentId, setPlusRecentId] = useState<string | undefined>(undefined);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
     let actif = true;
-    depot
-      .chargerCycle(id)
-      .then((c) => actif && setCycle(c))
+    Promise.all([depot.chargerCycle(id), depot.listerCycles()])
+      .then(([c, liste]) => {
+        if (!actif) return;
+        setCycle(c);
+        setPlusRecentId(liste[0]?.id);
+      })
       .catch((e: unknown) => actif && setErreur(e instanceof Error ? e.message : String(e)));
     return () => {
       actif = false;
@@ -131,11 +169,22 @@ function CycleArchive({ depot, id, naviguer, compte }: { depot: Depot; id: strin
   }
   if (!cycle || !analyse) return <Attente texte="Chargement du cycle" />;
 
+  const annulation = peutEtreAnnule(cycle, plusRecentId)
+    ? {
+        // La saisie du cycle suivant a-t-elle avancé depuis la validation ?
+        saisiePerdue: empreinte(brouillonEnCours) !== empreinte(brouillonSuivant(cycle.brouillon)),
+        annuler: async () => {
+          await depot.annulerValidation(cycle);
+          apresAnnulation(cycle.brouillon);
+        },
+      }
+    : undefined;
+
   return (
     <RepartitionCycle
       brouillon={cycle.brouillon}
       analyse={analyse}
-      mode={{ type: "archive", valideLe: cycle.valideLe, retour: () => naviguer("historique") }}
+      mode={{ type: "archive", valideLe: cycle.valideLe, retour: () => naviguer("historique"), annulation }}
       naviguer={naviguer}
       compte={compte}
     />

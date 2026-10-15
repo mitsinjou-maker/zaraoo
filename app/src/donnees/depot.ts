@@ -15,8 +15,12 @@ export interface Depot {
   /** Cycles validés, du plus récent au plus ancien. */
   listerCycles(): Promise<ResumeCycle[]>;
   chargerCycle(id: string): Promise<CycleValide | null>;
+  /** Tous les cycles validés, complets (pour l'export). */
+  chargerTousLesCycles(): Promise<CycleValide[]>;
   /** Enregistre le cycle validé (figé) et le brouillon du cycle suivant, ensemble. */
   validerCycle(cycle: CycleValide, suivant: BrouillonCycle): Promise<void>;
+  /** Annule la validation : supprime le cycle et en refait le brouillon en cours, ensemble. */
+  annulerValidation(cycle: CycleValide): Promise<void>;
 }
 
 const CLE_BROUILLON = "partage-jirama:brouillon-cycle";
@@ -55,8 +59,18 @@ export const depotLocal: Depot = {
   async chargerCycle(id) {
     return (lire<CycleValide[]>(CLE_CYCLES) ?? []).find((c) => c.id === id) ?? null;
   },
+  async chargerTousLesCycles() {
+    return lire<CycleValide[]>(CLE_CYCLES) ?? [];
+  },
   async validerCycle(cycle, suivant) {
     ecrire(CLE_CYCLES, [...(lire<CycleValide[]>(CLE_CYCLES) ?? []), cycle]);
     ecrire(CLE_BROUILLON, suivant);
+  },
+  async annulerValidation(cycle) {
+    ecrire(
+      CLE_CYCLES,
+      (lire<CycleValide[]>(CLE_CYCLES) ?? []).filter((c) => c.id !== cycle.id),
+    );
+    ecrire(CLE_BROUILLON, cycle.brouillon);
   },
 };

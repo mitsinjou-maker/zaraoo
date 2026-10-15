@@ -13,6 +13,8 @@ export interface CycleValide {
   nbFoyers: number;
   /** Date et heure de validation (ISO). */
   valideLe: string;
+  /** Même instant en millisecondes : les règles Firestore s'en servent pour limiter l'annulation. */
+  valideLeMs: number;
   brouillon: BrouillonCycle;
   resultat: ResultatCycle;
 }
@@ -39,9 +41,25 @@ export function figerCycle(b: BrouillonCycle, resultat: ResultatCycle, maintenan
     totalFacture: resultat.controleFacture?.totalSaisi ?? 0,
     nbFoyers: resultat.participants.length,
     valideLe: maintenant.toISOString(),
+    valideLeMs: maintenant.getTime(),
     brouillon: structuredClone(b),
     resultat: structuredClone(resultat),
   };
+}
+
+/** Délai pendant lequel la dernière validation peut être annulée (aussi imposé par firestore.rules). */
+export const DELAI_ANNULATION_JOURS = 30;
+
+/**
+ * Une validation peut être annulée si le cycle est le plus récent et validé depuis moins de
+ * 30 jours. Les cycles plus anciens restent figés définitivement.
+ */
+export function peutEtreAnnule(cycle: ResumeCycle, plusRecentId: string | undefined, maintenant = new Date()): boolean {
+  return (
+    cycle.id === plusRecentId &&
+    typeof cycle.valideLeMs === "number" &&
+    maintenant.getTime() - cycle.valideLeMs < DELAI_ANNULATION_JOURS * 86_400_000
+  );
 }
 
 /**
