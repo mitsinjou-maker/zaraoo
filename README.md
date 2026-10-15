@@ -11,6 +11,8 @@ Règles de calcul : [SPECIFICATION.md](SPECIFICATION.md).
 Application en ligne : <https://partage-jirama.web.app> (bouton « Essayer sans compte » : les données restent dans
 le navigateur). Les données d'exemple sont fictives.
 
+Guide d'utilisation illustré, pour les personnes sans connaissances techniques : [docs/Guide-Zaraoo.pdf](docs/Guide-Zaraoo.pdf).
+
 ## Démarrer
 
 Sans configuration Firebase, l'application fonctionne en **mode local** (tout dans le navigateur) :
