@@ -1,0 +1,33 @@
+# Vérifie chaque push sur main et chaque pull request : types, lint, tests, règles Firestore, build.
+# Aucun secret n'est nécessaire : le build se fait sans configuration Firebase (mode local) et les
+# règles sont testées sur l'émulateur avec un projet fictif (demo-partage-jirama).
+name: Vérification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint -w app
+      - run: npm test
+      - run: npm run test:regles
+      - run: npm run build

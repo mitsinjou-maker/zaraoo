@@ -3,6 +3,29 @@
 Zaraoo (nom de code du dépôt : `partage-jirama`) : répartition de la facture d'un compteur JIRAMA entre les foyers d'un bâtiment équipés de sous-compteurs.
 Règles de calcul : [SPECIFICATION.md](SPECIFICATION.md).
 
+- **Partage sériel** : chaque foyer a droit à la même part de chaque tranche par jour de présence ; les tranches chères
+  ne sont payées que par la consommation qui dépasse cette part.
+- **Écart** entre le compteur JIRAMA et les sous-compteurs (parties communes, pertes) réparti selon la présence.
+- **Fiches PDF** par foyer, historique figé, export Excel, facture estimée et remplacement de compteur.
+
+Application en ligne : <https://partage-jirama.web.app> (bouton « Essayer sans compte » : les données restent dans
+le navigateur). Les données d'exemple sont fictives.
+
+## Démarrer
+
+Sans configuration Firebase, l'application fonctionne en **mode local** (tout dans le navigateur) :
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+Pour la version en ligne avec comptes et synchronisation, suivre [docs/FIREBASE.md](docs/FIREBASE.md) : la
+configuration Firebase va dans `app/.env.local` (modèle : `app/.env.example`), jamais dans le dépôt.
+
 ## Organisation
 
 | Dossier | Contenu |
