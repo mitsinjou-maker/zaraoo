@@ -33,8 +33,11 @@ npm run dev
 
 ## Application
 
-Écran disponible : **saisie d'un cycle** (`app/src/pages/SaisieCycle.tsx`) — facture JIRAMA recalculée en direct,
-occupants (arrivées, départs), relevés des sous-compteurs et panneau de contrôle alimenté par le moteur.
+Écrans disponibles :
+- **Saisie d'un cycle** (`app/src/pages/SaisieCycle.tsx`) — facture JIRAMA recalculée en direct, occupants (arrivées,
+  départs), relevés des sous-compteurs et panneau de contrôle alimenté par le moteur.
+- **Répartition** (`app/src/pages/RepartitionCycle.tsx`) — résumé de la facture, cartes par foyer ou tableau, filtres,
+  tri, et fiches PDF par foyer (`app/src/pdf/fiches.ts`, pdfmake chargé seulement au moment de l'export).
 
 Pour l'instant, le brouillon est enregistré dans le navigateur (`app/src/donnees/depot.ts`) ; Firebase remplacera
 cette couche sans toucher aux écrans. Au premier lancement, l'écran est rempli avec les données fictives du §6.

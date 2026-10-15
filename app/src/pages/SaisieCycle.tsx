@@ -1,16 +1,13 @@
 import { Badge, Button, Group, Menu, Modal } from "@mantine/core";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { EnTete } from "../composants/EnTete";
 import { Etapes, type Etape } from "../composants/Etapes";
-import { ModaleApercu } from "../composants/ModaleApercu";
 import { BarreMobile, PanneauControle } from "../composants/PanneauControle";
 import { SectionFacture } from "../composants/SectionFacture";
 import { SectionOccupants } from "../composants/SectionOccupants";
 import { SectionReleves } from "../composants/SectionReleves";
-import { analyserBrouillon, brouillonVierge, type Analyse } from "../domaine/brouillon";
+import { brouillonVierge, type Analyse, type BrouillonCycle } from "../domaine/brouillon";
 import { brouillonExemple } from "../domaine/exemple";
-import { depotLocal } from "../donnees/depot";
-import { useBrouillon } from "../hooks/useBrouillon";
 
 function etapes(analyse: Analyse): Etape[] {
   const res = analyse.resultat;
@@ -41,12 +38,17 @@ function etapes(analyse: Analyse): Etape[] {
   ];
 }
 
-export function SaisieCycle() {
-  const { brouillon, modifier, remplacer, enregistreA } = useBrouillon(depotLocal);
-  const analyse = useMemo(() => analyserBrouillon(brouillon), [brouillon]);
-  const [apercu, setApercu] = useState(false);
+interface Props {
+  brouillon: BrouillonCycle;
+  analyse: Analyse;
+  modifier: (m: (b: BrouillonCycle) => void) => void;
+  remplacer: (b: BrouillonCycle) => void;
+  enregistreA: Date | null;
+  versRepartition: () => void;
+}
+
+export function SaisieCycle({ brouillon, analyse, modifier, remplacer, enregistreA, versRepartition }: Props) {
   const [confirmation, setConfirmation] = useState<"exemple" | "vierge" | null>(null);
-  const calculer = () => setApercu(true);
 
   return (
     <>
@@ -88,12 +90,11 @@ export function SaisieCycle() {
             <SectionOccupants brouillon={brouillon} analyse={analyse} modifier={modifier} />
             <SectionReleves brouillon={brouillon} analyse={analyse} modifier={modifier} />
           </div>
-          <PanneauControle brouillon={brouillon} analyse={analyse} modifier={modifier} calculer={calculer} />
+          <PanneauControle brouillon={brouillon} analyse={analyse} modifier={modifier} calculer={versRepartition} />
         </div>
       </div>
 
-      <BarreMobile analyse={analyse} calculer={calculer} />
-      <ModaleApercu resultat={apercu ? analyse.resultat : null} fermer={() => setApercu(false)} />
+      <BarreMobile analyse={analyse} calculer={versRepartition} />
 
       <Modal
         opened={confirmation !== null}

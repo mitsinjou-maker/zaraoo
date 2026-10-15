@@ -1,10 +1,9 @@
 import { Badge, Checkbox, SimpleGrid, Table, TextInput } from "@mantine/core";
 import type { Analyse, BrouillonCycle } from "../domaine/brouillon";
 import { entier, kwh, montant } from "../domaine/format";
+import { COULEURS_TRANCHES } from "../domaine/repartition";
 import { ChampDate, ChampNombre } from "./Champs";
 import { Section } from "./Section";
-
-const COULEURS_TRANCHES = ["var(--t1)", "var(--t2)", "var(--t3)", "var(--t4)"];
 
 interface Props {
   brouillon: BrouillonCycle;
