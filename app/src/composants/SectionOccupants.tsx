@@ -35,8 +35,17 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
   const [modale, setModale] = useState<"arrivee" | "depart" | null>(null);
   const couleur = new Map(brouillon.logements.map((l) => [l.id, l.couleur]));
   const logementsOccupes = new Set(analyse.occupations.map((o) => o.occupation.logementId));
+  const debut = brouillon.facture.dateDebut;
+  // Sans les dates de la facture, la présence ne peut pas être calculée : on affiche les occupants actuels.
+  const lignes: { occupation: OccupationSaisie; jours: number | null; poids: number | null; statut: StatutPresence }[] =
+    analyse.datesCompletes
+      ? analyse.occupations
+      : brouillon.occupations
+          .filter((o) => o.sortie === null || debut === null || o.sortie > debut)
+          .map((o) => ({ occupation: o, jours: null, poids: null, statut: "present" }));
+  for (const o of lignes) logementsOccupes.add(o.occupation.logementId);
   const vides = brouillon.logements.filter((l) => !logementsOccupes.has(l.id));
-  const participants = new Set(analyse.occupations.map((o) => o.occupation.occupantId)).size;
+  const participants = new Set(lignes.map((o) => o.occupation.occupantId)).size;
   const sommePoids = analyse.occupations.reduce((s, o) => s + o.poids, 0);
 
   const ajouterLogement = () =>
@@ -67,7 +76,9 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
       }
     >
       <p className="pj-aide" style={{ margin: "0 0 12px" }}>
-        Ne saisissez que les changements. Vacances : rien à faire, le foyer reste compté sur tout le cycle.
+        {analyse.datesCompletes
+          ? "Ne saisissez que les changements. Vacances : rien à faire, le foyer reste compté sur tout le cycle."
+          : "Occupants actuels. Les jours de présence seront calculés dès que les dates de la facture seront saisies (section 01)."}
       </p>
       <div className="pj-tableau">
         <Table verticalSpacing={6} horizontalSpacing="sm" miw={520}>
@@ -84,7 +95,7 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {analyse.occupations.map(({ occupation: o, jours, poids, statut }) => (
+            {lignes.map(({ occupation: o, jours, poids, statut }) => (
               <Table.Tr key={o.id}>
                 <Table.Td>
                   <PastilleLogement id={o.logementId} couleur={couleur.get(o.logementId) ?? "#ccc"} />
@@ -96,8 +107,8 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
                 <Table.Td className="pj-num" fw={o.sortie ? 700 : 400}>
                   {o.sortie ? dateFr(o.sortie) : <span className="pj-gris">—</span>}
                 </Table.Td>
-                <Table.Td className="r pj-num">{jours}</Table.Td>
-                <Table.Td className="r pj-num">{formatPoids(poids)}</Table.Td>
+                <Table.Td className="r pj-num">{jours ?? "—"}</Table.Td>
+                <Table.Td className="r pj-num">{poids === null ? "—" : formatPoids(poids)}</Table.Td>
                 <Table.Td className="pj-cacher-mobile">
                   <Badge color={STATUTS[statut].couleur}>{STATUTS[statut].texte}</Badge>
                 </Table.Td>
@@ -149,7 +160,7 @@ export function SectionOccupants({ brouillon, analyse, modifier }: Props) {
                 {participants} participant{participants > 1 ? "s" : ""}
               </Table.Td>
               <Table.Td />
-              <Table.Td className="r pj-num">{formatPoids(sommePoids)}</Table.Td>
+              <Table.Td className="r pj-num">{analyse.datesCompletes ? formatPoids(sommePoids) : "—"}</Table.Td>
               <Table.Td className="pj-cacher-mobile" />
               <Table.Td />
             </Table.Tr>

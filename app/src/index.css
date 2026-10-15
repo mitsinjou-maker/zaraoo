@@ -522,6 +522,52 @@ body {
   display: none;
 }
 
+/* --------------------------------------------------------------- Connexion */
+.pj-connexion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+.pj-connexion-boite {
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 24px;
+  border: 1px solid var(--encre);
+  background: var(--surface);
+}
+.pj-plein-ecran {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 60vh;
+  color: var(--gris);
+}
+.pj-seulement-mobile {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------- Historique */
+.pj-historique td {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.pj-historique td.mois {
+  font-family: inherit;
+  font-weight: 600;
+}
+.pj-bandeau[data-valide] {
+  background: var(--ok-fond);
+  border-color: var(--ok-trait);
+}
+.pj-pastille[data-valide] {
+  background: var(--ok);
+}
+
 /* ------------------------------------------------------ Écran de répartition */
 .pj-seg {
   display: flex;
@@ -984,7 +1030,7 @@ body {
     width: 100%;
   }
   .pj-bandeau > button,
-  .pj-bandeau > span {
+  .pj-bandeau > .pj-bandeau-action {
     width: 100%;
   }
   .pj-marque {
@@ -998,5 +1044,11 @@ body {
   .pj-seg button {
     padding: 4px 6px;
     letter-spacing: 0.06em;
+  }
+  .pj-seulement-mobile {
+    display: flex !important;
+  }
+  .pj-marque .long {
+    display: none;
   }
 }

@@ -1,41 +1,45 @@
-import { MantineProvider } from "@mantine/core";
+import { Loader, MantineProvider } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import "dayjs/locale/fr";
-import { useEffect, useMemo, useState } from "react";
-import { analyserBrouillon } from "./domaine/brouillon";
+import { useMemo } from "react";
 import { depotLocal } from "./donnees/depot";
-import { useBrouillon } from "./hooks/useBrouillon";
-import { RepartitionCycle } from "./pages/RepartitionCycle";
-import { SaisieCycle } from "./pages/SaisieCycle";
+import { depotFirebase } from "./donnees/depotFirebase";
+import { firebase } from "./firebase/config";
+import { useSession } from "./hooks/useSession";
+import { Connexion } from "./pages/Connexion";
+import { EspaceAdmin } from "./pages/EspaceAdmin";
 import { theme } from "./theme";
 
-type Vue = "saisie" | "repartition";
+function Contenu() {
+  const session = useSession();
+  const uid = session.mode === "firebase" && session.etat === "connecte" ? session.utilisateur.uid : null;
+  const depot = useMemo(() => (uid ? depotFirebase(firebase().db, uid) : depotLocal), [uid]);
+
+  if (session.mode === "local") {
+    return <EspaceAdmin depot={depot} compte={{ email: null }} />;
+  }
+  if (session.etat === "chargement") {
+    return (
+      <div className="pj-plein-ecran">
+        <Loader color="dark" size="sm" />
+      </div>
+    );
+  }
+  if (session.etat === "deconnecte") return <Connexion />;
+  return (
+    <EspaceAdmin
+      key={session.utilisateur.uid}
+      depot={depot}
+      compte={{ email: session.utilisateur.email, deconnecter: () => void session.deconnecter() }}
+    />
+  );
+}
 
 function App() {
-  const { brouillon, modifier, remplacer, enregistreA } = useBrouillon(depotLocal);
-  const analyse = useMemo(() => analyserBrouillon(brouillon), [brouillon]);
-  const [vue, setVue] = useState<Vue>("saisie");
-
-  // Chaque changement d'écran repart du haut de la page.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [vue]);
-
   return (
     <MantineProvider theme={theme} forceColorScheme="light">
       <DatesProvider settings={{ locale: "fr", firstDayOfWeek: 1 }}>
-        {vue === "repartition" && analyse.resultat?.ok ? (
-          <RepartitionCycle brouillon={brouillon} analyse={analyse} versSaisie={() => setVue("saisie")} />
-        ) : (
-          <SaisieCycle
-            brouillon={brouillon}
-            analyse={analyse}
-            modifier={modifier}
-            remplacer={remplacer}
-            enregistreA={enregistreA}
-            versRepartition={() => setVue("repartition")}
-          />
-        )}
+        <Contenu />
       </DatesProvider>
     </MantineProvider>
   );

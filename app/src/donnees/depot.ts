@@ -1,33 +1,62 @@
 import type { BrouillonCycle } from "../domaine/brouillon";
+import { resumer, type CycleValide, type ResumeCycle } from "../domaine/cycles";
 
 /**
- * Accès aux données. Seule cette couche changera lors du passage à Firebase
- * (spécification §11) : les écrans ne connaissent que cette interface.
+ * Accès aux données. Les écrans ne connaissent que cette interface : elle est implémentée
+ * par Firebase (`depotFirebase`) et, sans configuration Firebase, par le navigateur (`depotLocal`).
  */
-export interface DepotBrouillon {
-  charger(): BrouillonCycle | null;
-  enregistrer(brouillon: BrouillonCycle): void;
+export interface Depot {
+  /** Où sont rangées les données, pour l'afficher à l'admin. */
+  lieu: "navigateur" | "firebase";
+  chargerBrouillon(): Promise<BrouillonCycle | null>;
+  enregistrerBrouillon(brouillon: BrouillonCycle): Promise<void>;
+  /** Signale les modifications du brouillon faites ailleurs (autre appareil). Renvoie la fonction d'arrêt. */
+  ecouterBrouillon?(rappel: (brouillon: BrouillonCycle) => void): () => void;
+  /** Cycles validés, du plus récent au plus ancien. */
+  listerCycles(): Promise<ResumeCycle[]>;
+  chargerCycle(id: string): Promise<CycleValide | null>;
+  /** Enregistre le cycle validé (figé) et le brouillon du cycle suivant, ensemble. */
+  validerCycle(cycle: CycleValide, suivant: BrouillonCycle): Promise<void>;
 }
 
-const CLE = "partage-jirama:brouillon-cycle";
+const CLE_BROUILLON = "partage-jirama:brouillon-cycle";
+const CLE_CYCLES = "partage-jirama:cycles";
 
-/** Dépôt provisoire : le brouillon est gardé dans le navigateur de l'admin. */
-export const depotLocal: DepotBrouillon = {
-  charger() {
-    try {
-      const brut = localStorage.getItem(CLE);
-      if (!brut) return null;
-      const brouillon = JSON.parse(brut) as BrouillonCycle;
-      return brouillon.version === 1 ? brouillon : null;
-    } catch {
-      return null;
-    }
+function lire<T>(cle: string): T | null {
+  try {
+    const brut = localStorage.getItem(cle);
+    return brut ? (JSON.parse(brut) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function ecrire(cle: string, valeur: unknown) {
+  try {
+    localStorage.setItem(cle, JSON.stringify(valeur));
+  } catch {
+    // Stockage indisponible (navigation privée…) : la saisie reste en mémoire.
+  }
+}
+
+/** Dépôt sans compte : tout reste dans ce navigateur. */
+export const depotLocal: Depot = {
+  lieu: "navigateur",
+  async chargerBrouillon() {
+    const b = lire<BrouillonCycle>(CLE_BROUILLON);
+    return b?.version === 1 ? b : null;
   },
-  enregistrer(brouillon) {
-    try {
-      localStorage.setItem(CLE, JSON.stringify(brouillon));
-    } catch {
-      // Stockage indisponible (navigation privée…) : la saisie reste en mémoire.
-    }
+  async enregistrerBrouillon(brouillon) {
+    ecrire(CLE_BROUILLON, brouillon);
+  },
+  async listerCycles() {
+    return (lire<CycleValide[]>(CLE_CYCLES) ?? []).map(resumer).sort((a, b) => b.dateFin.localeCompare(a.dateFin));
+  },
+  async chargerCycle(id) {
+    return (lire<CycleValide[]>(CLE_CYCLES) ?? []).find((c) => c.id === id) ?? null;
+  },
+  async validerCycle(cycle, suivant) {
+    ecrire(CLE_CYCLES, [...(lire<CycleValide[]>(CLE_CYCLES) ?? []), cycle]);
+    ecrire(CLE_BROUILLON, suivant);
   },
 };

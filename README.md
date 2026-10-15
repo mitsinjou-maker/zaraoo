@@ -10,6 +10,9 @@ Règles de calcul : [SPECIFICATION.md](SPECIFICATION.md).
 | `packages/moteur` | Moteur de calcul en TypeScript, sans interface : facture, présence, écart, partage sériel, TVA, arrondis |
 | `app` | Application web (React + Vite) |
 | `maquette` | Maquettes HTML des écrans |
+| `docs/FIREBASE.md` | Guide de mise en ligne avec Firebase |
+| `firestore.rules` | Règles de sécurité Firestore (testées dans `app/tests-regles`) |
+| `scripts` | Lancement des émulateurs Firebase, compte admin de test |
 
 ## Commandes
 
@@ -31,16 +34,29 @@ npm run typecheck
 npm run dev
 ```
 
+Tests des règles de sécurité Firestore (émulateur, Java 21 requis) :
+
+```bash
+npm run test:regles
+```
+
 ## Application
 
 Écrans disponibles :
 - **Saisie d'un cycle** (`app/src/pages/SaisieCycle.tsx`) — facture JIRAMA recalculée en direct, occupants (arrivées,
   départs), relevés des sous-compteurs et panneau de contrôle alimenté par le moteur.
 - **Répartition** (`app/src/pages/RepartitionCycle.tsx`) — résumé de la facture, cartes par foyer ou tableau, filtres,
-  tri, et fiches PDF par foyer (`app/src/pdf/fiches.ts`, pdfmake chargé seulement au moment de l'export).
+  tri, fiches PDF par foyer (`app/src/pdf/fiches.ts`, pdfmake chargé seulement au moment de l'export) et
+  **validation du cycle** : il est figé et le cycle suivant est préparé (dates et index de départ, occupants restants).
+- **Historique** (`app/src/pages/Historique.tsx`) — cycles validés, consultables en lecture seule.
 
-Pour l'instant, le brouillon est enregistré dans le navigateur (`app/src/donnees/depot.ts`) ; Firebase remplacera
-cette couche sans toucher aux écrans. Au premier lancement, l'écran est rempli avec les données fictives du §6.
+Données (`app/src/donnees`) :
+- **avec Firebase** (`app/.env.local` rempli, voir [docs/FIREBASE.md](docs/FIREBASE.md)) : connexion de l'admin,
+  brouillon et cycles dans Firestore, synchronisés entre ordinateur et téléphone ;
+- **sans configuration** : mode local, tout reste dans le navigateur.
+
+Au premier lancement, le cycle en cours est rempli avec les données fictives du §6 de la spécification ;
+elles ne peuvent pas être validées.
 
 ## Moteur de calcul
 

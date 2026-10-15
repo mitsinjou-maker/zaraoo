@@ -7,8 +7,16 @@
   ],
   "scripts": {
     "dev": "npm run dev -w app",
+    "dev:emulateurs": "npm run dev:emulateurs -w app",
+    "emulateurs": "node scripts/firebase-local.mjs emulators:start --project demo-partage-jirama",
+    "compte-test": "node scripts/compte-test-emulateur.mjs",
     "build": "npm run build -w app",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "test:regles": "node scripts/firebase-local.mjs emulators:exec --only firestore --project demo-partage-jirama \"npm run test:regles -w app\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "deployer": "npm run build && firebase deploy --only hosting,firestore:rules"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.34.0"
   }
 }

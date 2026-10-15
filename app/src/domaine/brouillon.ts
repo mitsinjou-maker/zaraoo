@@ -203,6 +203,8 @@ export interface Manquant {
 }
 
 export interface Analyse {
+  /** Vrai quand les deux dates de la facture sont saisies et cohérentes : la présence peut être calculée. */
+  datesCompletes: boolean;
   joursCycle: number | null;
   kwhFactures: number | null;
   facture: FactureCalculee | null;
@@ -287,5 +289,6 @@ export function analyserBrouillon(b: BrouillonCycle): Analyse {
     resultat = repartirCycle(entree);
   }
 
-  return { joursCycle, kwhFactures, facture, occupations, manquants, releves: { saisis, attendus }, resultat };
+  const datesCompletes = joursCycle !== null && joursCycle > 0;
+  return { datesCompletes, joursCycle, kwhFactures, facture, occupations, manquants, releves: { saisis, attendus }, resultat };
 }

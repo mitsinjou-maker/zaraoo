@@ -31,7 +31,9 @@ function verifications(brouillon: BrouillonCycle, analyse: Analyse): Verificatio
 
   const participants = new Set(analyse.occupations.map((o) => o.occupation.occupantId)).size;
   const poids = analyse.occupations.reduce((s, o) => s + o.poids, 0);
-  liste.push({
+  if (!analyse.datesCompletes) {
+    liste.push({ niveau: "info", texte: "Occupants : présence calculée après saisie des dates" });
+  } else liste.push({
     niveau: participants > 0 ? "ok" : "erreur",
     texte: participants > 0 ? `Occupants : ${participants} participant${participants > 1 ? "s" : ""}` : "Aucun occupant pendant le cycle",
     valeur: participants > 0 ? `Σ poids ${formatPoids(poids)}` : undefined,

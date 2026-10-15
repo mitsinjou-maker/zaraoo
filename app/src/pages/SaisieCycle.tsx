@@ -1,6 +1,6 @@
-import { Badge, Button, Group, Menu, Modal } from "@mantine/core";
+import { Alert, Badge, Button, Group, Menu, Modal } from "@mantine/core";
 import { useState } from "react";
-import { EnTete } from "../composants/EnTete";
+import { EnTete, type Compte, type Rubrique } from "../composants/EnTete";
 import { Etapes, type Etape } from "../composants/Etapes";
 import { BarreMobile, PanneauControle } from "../composants/PanneauControle";
 import { SectionFacture } from "../composants/SectionFacture";
@@ -8,6 +8,7 @@ import { SectionOccupants } from "../composants/SectionOccupants";
 import { SectionReleves } from "../composants/SectionReleves";
 import { brouillonVierge, type Analyse, type BrouillonCycle } from "../domaine/brouillon";
 import { brouillonExemple } from "../domaine/exemple";
+import type { Depot } from "../donnees/depot";
 
 function etapes(analyse: Analyse): Etape[] {
   const res = analyse.resultat;
@@ -15,6 +16,7 @@ function etapes(analyse: Analyse): Etape[] {
     analyse.manquants.some((m) => m.section === "facture") ||
     res?.diagnostics.some((d) => d.code === "FACTURE_INCOHERENTE" && d.niveau === "erreur");
   const participants = analyse.occupations.length > 0;
+  const etatOccupants = !analyse.datesCompletes ? "neutre" : participants ? "ok" : "erreur";
   const erreurReleves =
     analyse.manquants.some((m) => m.section === "releves") ||
     res?.diagnostics.some((d) => d.logementId !== undefined && d.niveau === "erreur");
@@ -22,7 +24,12 @@ function etapes(analyse: Analyse): Etape[] {
 
   return [
     { ancre: "facture", titre: "Facture", etat: erreurFacture ? "erreur" : "ok", texte: erreurFacture ? "!" : "✓" },
-    { ancre: "occupants", titre: "Occupants", etat: participants ? "ok" : "erreur", texte: participants ? "✓" : "!" },
+    {
+      ancre: "occupants",
+      titre: "Occupants",
+      etat: etatOccupants,
+      texte: etatOccupants === "neutre" ? "—" : participants ? "✓" : "!",
+    },
     {
       ancre: "releves",
       titre: "Relevés",
@@ -44,15 +51,23 @@ interface Props {
   modifier: (m: (b: BrouillonCycle) => void) => void;
   remplacer: (b: BrouillonCycle) => void;
   enregistreA: Date | null;
+  erreurEnregistrement: string | null;
+  lieu: Depot["lieu"];
   versRepartition: () => void;
+  naviguer: (r: Rubrique) => void;
+  compte: Compte;
 }
 
-export function SaisieCycle({ brouillon, analyse, modifier, remplacer, enregistreA, versRepartition }: Props) {
+export function SaisieCycle(props: Props) {
+  const { brouillon, analyse, modifier, remplacer, enregistreA, erreurEnregistrement, lieu, versRepartition } = props;
   const [confirmation, setConfirmation] = useState<"exemple" | "vierge" | null>(null);
 
   return (
     <>
       <EnTete
+        actif="saisie"
+        naviguer={props.naviguer}
+        compte={props.compte}
         droite={
           <Menu position="bottom-end">
             <Menu.Target>
@@ -78,9 +93,16 @@ export function SaisieCycle({ brouillon, analyse, modifier, remplacer, enregistr
           <span className="pj-pastille">Brouillon</span>
           {brouillon.exemple && <Badge color="orange">Données d'exemple</Badge>}
           <span className="enregistre" style={{ marginLeft: "auto" }}>
-            {enregistreA ? `Enregistré dans ce navigateur · ${enregistreA.toLocaleTimeString("fr-FR")}` : ""}
+            {enregistreA
+              ? `Enregistré ${lieu === "firebase" ? "en ligne" : "dans ce navigateur"} · ${enregistreA.toLocaleTimeString("fr-FR")}`
+              : ""}
           </span>
         </div>
+        {erreurEnregistrement && (
+          <Alert color="red" variant="light" radius={0} mb="md">
+            {erreurEnregistrement} — la saisie reste dans cette page ; vérifiez la connexion Internet.
+          </Alert>
+        )}
 
         <Etapes etapes={etapes(analyse)} />
 
@@ -101,7 +123,11 @@ export function SaisieCycle({ brouillon, analyse, modifier, remplacer, enregistr
         onClose={() => setConfirmation(null)}
         title={confirmation === "vierge" ? "Brouillon vierge" : "Données d'exemple"}
       >
-        <p style={{ marginTop: 0 }}>La saisie en cours sera remplacée. Continuer ?</p>
+        <p style={{ marginTop: 0 }}>
+          La saisie en cours sera remplacée
+          {confirmation === "vierge" ? ", y compris les logements, les occupants et les index de départ" : ""}. Les cycles
+          validés ne sont pas touchés. Continuer ?
+        </p>
         <Group justify="flex-end">
           <Button variant="default" onClick={() => setConfirmation(null)}>
             Annuler

@@ -1,25 +1,35 @@
-import { Badge, Button, Modal, NativeSelect, Tooltip } from "@mantine/core";
+import { Alert, Badge, Button, Group, Modal, NativeSelect, Tooltip } from "@mantine/core";
 import { useMemo, useState } from "react";
-import { EnTete } from "../composants/EnTete";
+import { EnTete, type Compte, type Rubrique } from "../composants/EnTete";
 import { CarteFoyer, CarteVide } from "../composants/repartition/Cartes";
 import { ResumeFacture } from "../composants/repartition/ResumeFacture";
 import { TableauRepartition } from "../composants/repartition/TableauRepartition";
 import type { Analyse, BrouillonCycle } from "../domaine/brouillon";
-import { aPayer, kwh, montant, pourcent } from "../domaine/format";
+import { aPayer, dateFr, kwh, montant, pourcent } from "../domaine/format";
 import { foyersDuCycle, trierFoyers, type FoyerAffiche, type Tri } from "../domaine/repartition";
+import type { Depot } from "../donnees/depot";
 import { telechargerFiches } from "../pdf/fiches";
 
 type Filtre = "tous" | "present" | "demenagement" | "vide";
 type Vue = "grille" | "tableau";
 
+/** Répartition du cycle en cours (modifiable, à valider) ou d'un cycle validé (figé). */
+export type ModeRepartition =
+  | { type: "brouillon"; versSaisie: () => void; valider: () => Promise<void>; lieu: Depot["lieu"] }
+  | { type: "archive"; valideLe: string; retour: () => void };
+
 interface Props {
   brouillon: BrouillonCycle;
   analyse: Analyse;
-  versSaisie: () => void;
+  mode: ModeRepartition;
+  naviguer: (r: Rubrique) => void;
+  compte: Compte;
 }
 
-export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
+export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }: Props) {
   const resultat = analyse.resultat!;
+  const [confirmation, setConfirmation] = useState(false);
+  const [validation, setValidation] = useState<{ enCours: boolean; erreur: string | null }>({ enCours: false, erreur: null });
   const { foyers, vides } = useMemo(() => foyersDuCycle(brouillon, analyse), [brouillon, analyse]);
   const [vue, setVue] = useState<Vue>("grille");
   const [filtre, setFiltre] = useState<Filtre>("tous");
@@ -51,6 +61,16 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
     }
   };
 
+  const valider = async () => {
+    if (mode.type !== "brouillon") return;
+    setValidation({ enCours: true, erreur: null });
+    try {
+      await mode.valider();
+    } catch (e) {
+      setValidation({ enCours: false, erreur: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const onglets: { cle: Filtre; texte: string; nombre: number }[] = [
     { cle: "tous", texte: "Tous", nombre: foyers.length + vides.length },
     { cle: "present", texte: "Présents", nombre: foyers.filter((f) => f.categorie === "present").length },
@@ -61,6 +81,9 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
   return (
     <>
       <EnTete
+        actif={mode.type === "archive" ? "historique" : "saisie"}
+        naviguer={naviguer}
+        compte={compte}
         droite={
           <div className="pj-seg pj-libelle" role="group" aria-label="Affichage">
             <button type="button" data-actif={vue === "grille" || undefined} onClick={() => setVue("grille")}>
@@ -75,7 +98,7 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
 
       <main className="pj-page">
         <div className="pj-fil pj-libelle">
-          <span>Cycles</span>
+          <span>{mode.type === "archive" ? "Historique" : "Cycles"}</span>
           <span>/</span>
           <b>{brouillon.facture.mois || "Nouveau cycle"}</b>
           <span>/</span>
@@ -83,25 +106,45 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
           {brouillon.exemple && <Badge color="orange">Données d'exemple</Badge>}
         </div>
 
-        <div className="pj-bandeau">
-          <span className="pj-pastille pj-libelle">Brouillon</span>
-          <p>
-            <b>Répartition calculée.</b>{" "}
-            {avertissements.length === 0
-              ? "Facture contrôlée, aucun avertissement."
-              : `${avertissements.length} avertissement${avertissements.length > 1 ? "s" : ""} : ${avertissements.map((a) => a.message).join(" ")}`}
-          </p>
-          <Button variant="default" onClick={versSaisie}>
-            ← Modifier la saisie
-          </Button>
-          <Tooltip label="Disponible avec l'enregistrement des cycles (Firebase)" multiline w={240}>
-            <span>
-              <Button disabled fullWidth>
-                Valider le cycle
-              </Button>
+        {mode.type === "brouillon" ? (
+          <div className="pj-bandeau">
+            <span className="pj-pastille pj-libelle">Brouillon</span>
+            <p>
+              <b>Répartition calculée.</b>{" "}
+              {avertissements.length === 0
+                ? "Facture contrôlée, aucun avertissement."
+                : `${avertissements.length} avertissement${avertissements.length > 1 ? "s" : ""} : ${avertissements.map((a) => a.message).join(" ")}`}
+            </p>
+            <Button variant="default" onClick={mode.versSaisie}>
+              ← Modifier la saisie
+            </Button>
+            <Tooltip
+              label="Données d'exemple : commencez un brouillon vierge pour valider un vrai cycle"
+              multiline
+              w={260}
+              disabled={!brouillon.exemple}
+            >
+              <span className="pj-bandeau-action">
+                <Button fullWidth disabled={brouillon.exemple} onClick={() => setConfirmation(true)}>
+                  Valider le cycle
+                </Button>
+              </span>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="pj-bandeau" data-valide>
+            <span className="pj-pastille pj-libelle" data-valide>
+              Validé
             </span>
-          </Tooltip>
-        </div>
+            <p>
+              <b>Cycle validé le {new Date(mode.valideLe).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })}.</b>{" "}
+              Montants figés : ils ne changent plus, même si les tarifs ou les règles évoluent.
+            </p>
+            <Button variant="default" onClick={mode.retour}>
+              ← Historique
+            </Button>
+          </div>
+        )}
 
         <ResumeFacture brouillon={brouillon} resultat={resultat} />
 
@@ -170,8 +213,8 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
       <footer className="pj-barre-etat pj-libelle">
         <div>
           <span>
-            <i className="pj-point" />
-            Brouillon
+            <i className="pj-point" style={mode.type === "archive" ? { background: "var(--ok)" } : undefined} />
+            {mode.type === "archive" ? "Validé" : "Brouillon"}
           </span>
           <span>{resultat.controleFacture?.coherent ? "Facture vérifiée" : "Facture acceptée telle quelle"}</span>
           <span>Écart {pourcent(ecart.ecartRelatif)}</span>
@@ -200,6 +243,39 @@ export function RepartitionCycle({ brouillon, analyse, versSaisie }: Props) {
             </p>
           </>
         )}
+      </Modal>
+
+      <Modal
+        opened={confirmation}
+        onClose={() => !validation.enCours && setConfirmation(false)}
+        title="Valider le cycle"
+      >
+        <p style={{ marginTop: 0 }}>
+          Le cycle <b>{brouillon.facture.mois || "en cours"}</b> sera <b>figé</b> : les {resultat.participants.length} parts (
+          {aPayer(t.totalArrondi)} Ar au total) ne pourront plus être modifiées.
+        </p>
+        <p>
+          Le cycle suivant sera préparé automatiquement : il commencera le {dateFr(brouillon.facture.dateFin)}{" "}
+          avec les derniers index relevés, les mêmes logements et les occupants encore présents.
+        </p>
+        {mode.type === "brouillon" && mode.lieu === "navigateur" && (
+          <Alert color="orange" variant="light" radius={0} mb="sm">
+            Mode local : le cycle validé est rangé dans ce navigateur seulement.
+          </Alert>
+        )}
+        {validation.erreur && (
+          <Alert color="red" variant="light" radius={0} mb="sm">
+            La validation a échoué : {validation.erreur}
+          </Alert>
+        )}
+        <Group justify="flex-end">
+          <Button variant="default" disabled={validation.enCours} onClick={() => setConfirmation(false)}>
+            Annuler
+          </Button>
+          <Button loading={validation.enCours} onClick={valider}>
+            Valider et figer
+          </Button>
+        </Group>
       </Modal>
     </>
   );
