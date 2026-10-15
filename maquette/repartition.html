@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Répartition du cycle — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F1EC;
+    --surface: #F7F6F2;
+    --ink: #111214;
+    --muted: #55554F;
+    --faint: #8A8981;
+    --line: #CFCDC5;
+    --line-strong: #111214;
+    --info-bg: #E5EBF4;
+    --info-line: #98B2DE;
+    --info: #1C56C9;
+    --ok: #1F7A4D;
+    --warn: #B4570B;
+    --t1: #2E9E62;
+    --t2: #F08A24;
+    --t3: #D3266F;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --sans: "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+  .mono { font-family: var(--mono); }
+  .label { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Barre du haut */
+  .topbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); height: 48px; background: var(--bg); position: sticky; top: 0; z-index: 5; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 20px; font-weight: 800; letter-spacing: .02em; font-size: 18px; border-right: 1px solid var(--line); white-space: nowrap; }
+  .brand i { display: inline-block; width: 14px; height: 14px; background: var(--ink); clip-path: polygon(55% 0, 10% 58%, 45% 58%, 35% 100%, 90% 38%, 55% 38%); }
+  .nav { display: flex; align-items: center; gap: 4px; padding: 0 16px; overflow-x: auto; }
+  .nav a { padding: 4px 8px; color: var(--muted); white-space: nowrap; }
+  .nav a.on { background: var(--ink); color: var(--bg); }
+  .top-right { margin-left: auto; display: flex; align-items: stretch; }
+  .top-right > * { display: flex; align-items: center; padding: 0 16px; border-left: 1px solid var(--line); }
+  .seg button { padding: 4px 8px; color: var(--muted); }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+  /* Bandeau */
+  .banner { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--info-bg); border: 1px solid var(--info-line); margin-bottom: 24px; flex-wrap: wrap; }
+  .banner .pill { background: var(--info); color: #fff; padding: 4px 8px; }
+  .banner p { flex: 1; min-width: 220px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.sq { width: 38px; padding: 10px 0; background: transparent; color: var(--ink); border: 1px solid var(--line); letter-spacing: 0; }
+
+  /* Sections */
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 28px 0 10px; color: var(--muted); flex-wrap: wrap; }
+  .sec-head:first-of-type { margin-top: 0; }
+  .sec-head b { color: var(--ink); font-weight: 600; }
+
+  /* Résumé facture */
+  .stats { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line); background: var(--surface); }
+  .stat { padding: 14px 16px; border-right: 1px solid var(--line); min-width: 0; }
+  .stat:last-child { border-right: 0; }
+  .stat .label { color: var(--muted); font-size: 11.5px; display: block; margin-bottom: 6px; }
+  .stat .v { font-family: var(--mono); font-weight: 600; font-size: 17px; white-space: nowrap; }
+  .stat .s { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .stat.total { background: var(--ink); color: var(--bg); }
+  .stat.total .label, .stat.total .s { color: #B9B8B0; }
+  .ok { color: var(--ok); }
+  .stat.total .ok { color: #7BE0A6; }
+
+  .building { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-top: 0; background: var(--surface); }
+  .building > div { padding: 14px 16px; }
+  .building > div + div { border-left: 1px solid var(--line); }
+  .bar { display: flex; height: 14px; background: #E4E2DB; margin: 8px 0 8px; }
+  .bar span { display: block; height: 100%; }
+  .t1 { background: var(--t1); } .t2 { background: var(--t2); } .t3 { background: var(--t3); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+  .gap-line { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 13.5px; }
+  .gap-line .num { white-space: nowrap; }
+  .gap-line.sum { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; font-weight: 600; }
+
+  /* Barre d'outils de la répartition */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 0; flex-wrap: wrap; }
+  .tabs { display: flex; border: 1px solid var(--line); overflow-x: auto; max-width: 100%; }
+  .tabs button { padding: 9px 12px; color: var(--muted); border-right: 1px solid var(--line); white-space: nowrap; }
+  .tabs button:last-child { border-right: 0; }
+  .tabs button.on { background: var(--ink); color: var(--bg); }
+  .tabs button em { font-style: normal; color: var(--faint); margin-left: 6px; }
+  .tabs button.on em { color: #B9B8B0; }
+  .toolbar .spacer { flex: 1; }
+  .select { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+  .select span.box { border: 1px solid var(--line); padding: 8px 12px; color: var(--ink); font-family: var(--sans); letter-spacing: 0; text-transform: none; font-size: 14px; background: var(--surface); }
+
+  /* Grille de foyers */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); border-left: 1px solid var(--line); border-top: 1px solid var(--line); margin-top: 12px; }
+  .card { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-width: 0; }
+  .card-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--line); gap: 8px; }
+  .badge { font-family: var(--mono); font-weight: 700; font-size: 12px; padding: 3px 7px; color: #111; }
+  .card-top .links { color: var(--muted); display: flex; gap: 14px; }
+  .card-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .who { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .who h3 { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+  .who .presence { color: var(--muted); font-size: 13px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 6px; border: 1px solid; }
+  .tag.blue { color: var(--info); border-color: var(--info-line); background: var(--info-bg); }
+  .tag.orange { color: var(--warn); border-color: #E7B98C; background: #F7EADB; }
+  .tag.grey { color: var(--muted); border-color: var(--line); background: var(--bg); }
+  .kwh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .kwh .big { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .kwh .detail { color: var(--muted); font-size: 12.5px; }
+  .card .bar { margin: 0; height: 10px; }
+  .tr { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .tr i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
+  .lines { border-top: 1px dashed var(--line); padding-top: 10px; display: grid; grid-template-columns: 1fr auto; row-gap: 3px; font-size: 13px; }
+  .lines span:nth-child(odd) { color: var(--muted); }
+  .lines span:nth-child(even) { font-family: var(--mono); text-align: right; }
+  .total-row { display: flex; align-items: baseline; justify-content: space-between; border-top: 1px solid var(--ink); padding-top: 10px; gap: 8px; flex-wrap: wrap; }
+  .total-row .t { font-family: var(--mono); font-size: 24px; font-weight: 700; white-space: nowrap; }
+  .total-row .per { color: var(--muted); font-family: var(--mono); font-size: 12.5px; }
+  .card-actions { display: flex; gap: 8px; padding: 0 16px 16px; }
+  .card-actions .btn { flex: 1; }
+  .card-actions .btn.sq { flex: 0 0 38px; }
+  .card.vide { background: repeating-linear-gradient(135deg, var(--bg) 0 10px, #ECEBE5 10px 20px); }
+  .card.vide .card-body { justify-content: center; }
+  .card.vide p { color: var(--muted); font-size: 13.5px; }
+
+  /* Tableau */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); margin-top: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 1100px; }
+  th, td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+  td { font-family: var(--mono); font-size: 13px; }
+  th:nth-child(-n+2), td:nth-child(-n+2) { text-align: left; }
+  td.name { font-family: var(--sans); font-weight: 600; }
+  tr.foot td { font-weight: 700; border-top: 1px solid var(--ink); border-bottom: 0; background: var(--bg); }
+  tr.muted td { color: var(--faint); }
+  .hidden { display: none !important; }
+
+  /* Barre d'état */
+  .statusbar { display: flex; justify-content: space-between; gap: 16px; padding: 10px 20px; border-top: 1px solid var(--line); color: var(--muted); margin-top: 32px; flex-wrap: wrap; }
+  .statusbar .left { display: flex; gap: 18px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; background: var(--ok); margin-right: 6px; }
+  .dot.draft { background: var(--warn); }
+
+  @media (max-width: 1100px) {
+    .stats { grid-template-columns: repeat(4, 1fr); }
+    .stat:nth-child(4) { border-right: 0; }
+    .stat:nth-child(-n+4) { border-bottom: 1px solid var(--line); }
+    .stat.total { grid-column: span 2; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 700px) {
+    main { padding: 16px; }
+    .brand { padding: 0 16px; font-size: 16px; }
+    .nav, .top-right .gear { display: none; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat { border-bottom: 1px solid var(--line); }
+    .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+    .stat:nth-child(even) { border-right: 0; }
+    .stat.total { grid-column: 1 / -1; border-bottom: 0; }
+    .building { grid-template-columns: 1fr; }
+    .building > div + div { border-left: 0; border-top: 1px solid var(--line); }
+    .grid { grid-template-columns: 1fr; }
+    .toolbar .spacer, .select { display: none; }
+    .toolbar .btn { width: 100%; }
+    .banner .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><i></i>PARTAGE JIRAMA</div>
+  <nav class="nav label">
+    <a class="on" href="#">Cycles</a>
+    <a href="#">Foyers</a>
+    <a href="#">Logements</a>
+    <a href="#">Tarifs</a>
+  </nav>
+  <div class="top-right">
+    <div class="seg label" role="tablist">
+      <button class="on" data-view="grid">Grille</button>
+      <button data-view="table">Tableau</button>
+    </div>
+    <a class="gear" href="#" aria-label="Paramètres">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="banner">
+    <span class="pill label">Brouillon</span>
+    <p><b>Cycle de septembre 2026 prêt à valider.</b> Facture contrôlée, écart sous le seuil d'alerte, un déménagement avec relevé.</p>
+    <button class="btn">Valider le cycle</button>
+  </div>
+
+  <!-- 01 / FACTURE -->
+  <div class="sec-head label"><span>01 / <b>Facture JIRAMA</b></span><span>Période 26/08 → 25/09/2026 · 30 jours</span></div>
+  <div class="stats">
+    <div class="stat"><span class="label">Compteur</span><div class="v">310 kWh</div><div class="s num">Index 30 400 → 30 710</div></div>
+    <div class="stat"><span class="label">Énergie</span><div class="v">147 040,00</div><div class="s">3 tranches</div></div>
+    <div class="stat"><span class="label">Frais fixes</span><div class="v">17 959,40</div><div class="s">Redevance + prime</div></div>
+    <div class="stat"><span class="label">Taxes</span><div class="v">7 719,60</div><div class="s">5,25 % de l'énergie</div></div>
+    <div class="stat"><span class="label">TVA</span><div class="v">27 743,80</div><div class="s">20 % − franchise</div></div>
+    <div class="stat"><span class="label">Contrôle</span><div class="v ok">✓ 0,00</div><div class="s">Recalcul = saisie</div></div>
+    <div class="stat total"><span class="label">Total à répartir</span><div class="v">200 462,80 Ar</div><div class="s ok">Σ des parts = facture</div></div>
+  </div>
+  <div class="building">
+    <div>
+      <span class="label" style="color:var(--muted)">Tranches du bâtiment</span>
+      <div class="bar"><span class="t1" style="width:41.94%"></span><span class="t2" style="width:54.84%"></span><span class="t3" style="width:3.22%"></span></div>
+      <div class="legend num">
+        <span><i class="t1"></i>T1 · 130 kWh × 340</span>
+        <span><i class="t2"></i>T2 · 170 kWh × 560</span>
+        <span><i class="t3"></i>T3 · 10 kWh × 764</span>
+      </div>
+    </div>
+    <div>
+      <span class="label" style="color:var(--muted)">Écart compteur / sous-compteurs</span>
+      <div class="gap-line" style="margin-top:6px"><span>Compteur JIRAMA</span><span class="num">310,0 kWh</span></div>
+      <div class="gap-line"><span>Σ participants (5)</span><span class="num">− 294,0 kWh</span></div>
+      <div class="gap-line sum"><span>Écart → réparti selon la présence</span><span class="num">16,0 kWh · 5,2 % <span class="ok">✓ &lt; 10 %</span></span></div>
+    </div>
+  </div>
+
+  <!-- 03 / RÉPARTITION -->
+  <div class="sec-head label"><span>02 / <b>Répartition</b></span><span>Partage sériel · quotas égaux par jour de présence</span></div>
+  <div class="toolbar">
+    <div class="tabs label" id="tabs">
+      <button class="on" data-f="all">Tous<em>6</em></button>
+      <button data-f="present">Présents<em>3</em></button>
+      <button data-f="move">Déménagements<em>2</em></button>
+      <button data-f="vide">Vides<em>1</em></button>
+    </div>
+    <div class="spacer"></div>
+    <div class="select label">Tri <span class="box">Logement</span></div>
+    <button class="btn">Exporter les fiches (PDF)</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="table-wrap hidden" id="table">
+    <table>
+      <thead><tr>
+        <th>Lgt</th><th>Foyer</th><th>Jours</th><th>Mesuré</th><th>+ Écart</th><th>Corrigé</th>
+        <th>T1</th><th>T2</th><th>T3</th><th>Énergie</th><th>Taxes</th><th>Fixes</th><th>Franchise</th><th>TVA</th><th>Total</th><th>Ar/kWh</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer class="statusbar label">
+  <div class="left">
+    <span><i class="dot draft"></i>Brouillon</span>
+    <span>Facture vérifiée</span>
+    <span>Écart 5,2 %</span>
+    <span>Σ réparti = 200 462,80 Ar</span>
+  </div>
+  <span>Calculé il y a 1 min</span>
+</footer>
+
+<script>
+  // Données de l'exemple §6 de la spécification (fictives).
+  const foyers = [
+    { lgt: "L01", color: "#3FB59A", nom: "Foyer A", type: "present", jours: 30, w: 1,   q: 20,  e: 4,   t: [24, 0, 0],            en: 8160.00,  tx: 428.40,  fx: 4489.85, fr: 8500, tva: 915.65,   tot: 13993.90 },
+    { lgt: "L02", color: "#E3559A", nom: "Foyer B", type: "present", jours: 30, w: 1,   q: 60,  e: 4,   t: [35.33, 28.67, 0],     en: 28066.67, tx: 1473.50, fx: 4489.85, fr: 8500, tva: 5106.00,  tot: 39136.02 },
+    { lgt: "L03", color: "#8CC63F", nom: "Foyer C", type: "present", jours: 30, w: 1,   q: 160, e: 4,   t: [35.33, 118.67, 10],   en: 86106.67, tx: 4520.60, fx: 4489.85, fr: 8500, tva: 17323.42, tot: 112440.54 },
+    { lgt: "L04", color: "#5B7CF0", nom: "Foyer D", type: "move", tag: "Sortant 07/09", jours: 12, w: 0.4, q: 18, e: 1.6, t: [14.13, 5.47, 0], en: 7866.67, tx: 413.00, fx: 1795.94, fr: 3400, tva: 1335.12, tot: 11410.73 },
+    { lgt: "L04", color: "#5B7CF0", nom: "Foyer E", type: "move", tag: "Entrant 07/09", jours: 18, w: 0.6, q: 36, e: 2.4, t: [21.2, 17.2, 0], en: 16840.00, tx: 884.10, fx: 2693.91, fr: 5100, tva: 3063.60, tot: 23481.61 },
+    { lgt: "L05", color: "#F08A3C", nom: "Logement vide", type: "vide", sub: 2 },
+  ];
+  const MAX = 164;
+  const fmt = (n, d = 2) => n.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const kwh = n => fmt(n, Number.isInteger(n) ? 0 : 1);
+
+  function card(f) {
+    if (f.type === "vide") return `
+      <article class="card vide" data-type="vide">
+        <div class="card-top"><span class="badge" style="background:${f.color}">${f.lgt}</span><span class="tag grey">Vide</span></div>
+        <div class="card-body">
+          <div class="who"><h3>${f.nom}</h3><span class="presence">0 / 30 jours</span></div>
+          <p>Sous-compteur : <b class="num">${f.sub} kWh</b>, comptés dans l'écart.</p>
+          <p>Sa part de frais fixes et de franchise est répartie entre les présents.</p>
+        </div>
+        <div class="card-actions"><button class="btn ghost">Ajouter un occupant</button></div>
+      </article>`;
+    const q2 = f.q + f.e;
+    const [a, b, c] = f.t;
+    const tags = f.type === "move"
+      ? `<span class="tag orange">Déménagement</span><span class="tag grey">${f.tag}</span>`
+      : `<span class="tag blue">Présent</span>`;
+    return `
+      <article class="card" data-type="${f.type}">
+        <div class="card-top"><span class="badge" style="background:${f.color}">${f.lgt}</span><span class="links label">Relevés ↗</span></div>
+        <div class="card-body">
+          <div class="who"><h3>${f.nom}</h3><span class="presence num">${f.jours} / 30 j · poids ${fmt(f.w, f.w === 1 ? 0 : 1)}</span></div>
+          <div class="tags">${tags}</div>
+          <div class="kwh"><span class="big">${kwh(q2)} kWh</span><span class="detail num">${kwh(f.q)} mesurés + ${kwh(f.e)} d'écart</span></div>
+          <div class="bar" title="Tranches">
+            <span class="t1" style="width:${a / MAX * 100}%"></span><span class="t2" style="width:${b / MAX * 100}%"></span><span class="t3" style="width:${c / MAX * 100}%"></span>
+          </div>
+          <div class="tr"><span><i class="t1"></i>T1 ${kwh(a)}</span><span><i class="t2"></i>T2 ${kwh(b)}</span><span><i class="t3"></i>T3 ${kwh(c)}</span></div>
+          <div class="lines">
+            <span>Énergie</span><span>${fmt(f.en)}</span>
+            <span>Taxes (5,25 %)</span><span>${fmt(f.tx)}</span>
+            <span>Frais fixes</span><span>${fmt(f.fx)}</span>
+            <span>TVA (franchise ${fmt(f.fr, 0)})</span><span>${fmt(f.tva)}</span>
+          </div>
+          <div class="total-row"><span class="t">${fmt(f.tot)} Ar</span><span class="per">${fmt(f.tot / q2, 0)} Ar/kWh</span></div>
+        </div>
+        <div class="card-actions"><button class="btn">Fiche PDF</button><button class="btn sq" aria-label="Plus d'actions">…</button></div>
+      </article>`;
+  }
+
+  function row(f) {
+    if (f.type === "vide") return `<tr class="muted"><td>${f.lgt}</td><td class="name">${f.nom}</td><td>0</td><td>(${f.sub})</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+    const q2 = f.q + f.e;
+    return `<tr><td>${f.lgt}</td><td class="name">${f.nom}</td><td>${f.jours}</td><td>${kwh(f.q)}</td><td>${kwh(f.e)}</td><td>${kwh(q2)}</td>
+      <td>${kwh(f.t[0])}</td><td>${kwh(f.t[1])}</td><td>${kwh(f.t[2])}</td><td>${fmt(f.en)}</td><td>${fmt(f.tx)}</td><td>${fmt(f.fx)}</td><td>${fmt(f.fr, 0)}</td><td>${fmt(f.tva)}</td><td><b>${fmt(f.tot)}</b></td><td>${fmt(f.tot / q2, 0)}</td></tr>`;
+  }
+
+  const grid = document.getElementById("grid");
+  const tbody = document.getElementById("tbody");
+  grid.innerHTML = foyers.map(card).join("");
+  tbody.innerHTML = foyers.map(row).join("") +
+    `<tr class="foot"><td></td><td class="name">Total</td><td></td><td>294</td><td>16</td><td>310</td><td>130</td><td>170</td><td>10</td><td>147 040,00</td><td>7 719,60</td><td>17 959,40</td><td>34 000</td><td>27 743,80</td><td>200 462,80</td><td></td></tr>`;
+
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".seg button").forEach(x => x.classList.toggle("on", x === b));
+    const table = b.dataset.view === "table";
+    document.getElementById("grid").classList.toggle("hidden", table);
+    document.getElementById("table").classList.toggle("hidden", !table);
+  }));
+
+  document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    const f = b.dataset.f;
+    grid.querySelectorAll(".card").forEach(c => c.classList.toggle("hidden", f !== "all" && c.dataset.type !== f));
+  }));
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "@partage-jirama/moteur",
+  "version": "0.1.0",
+  "description": "Moteur de répartition d'une facture JIRAMA entre les foyers d'un bâtiment",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.4"
+  }
+}

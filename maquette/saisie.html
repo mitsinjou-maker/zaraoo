@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saisie du cycle — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F1EC;
+    --surface: #F7F6F2;
+    --field: #FFFFFF;
+    --ink: #111214;
+    --muted: #55554F;
+    --faint: #8A8981;
+    --line: #CFCDC5;
+    --info-bg: #E5EBF4;
+    --info-line: #98B2DE;
+    --info: #1C56C9;
+    --ok: #1F7A4D;
+    --ok-bg: #E1F0E6;
+    --ok-line: #9CCDAE;
+    --warn: #B4570B;
+    --warn-bg: #F7EADB;
+    --warn-line: #E7B98C;
+    --err: #C0262D;
+    --err-bg: #F8E1E1;
+    --err-line: #E3A0A3;
+    --t1: #2E9E62;
+    --t2: #F08A24;
+    --t3: #D3266F;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --sans: "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+  .label { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Barre du haut */
+  .topbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); height: 48px; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 20px; font-weight: 800; letter-spacing: .02em; font-size: 18px; border-right: 1px solid var(--line); white-space: nowrap; }
+  .brand i { display: inline-block; width: 14px; height: 14px; background: var(--ink); clip-path: polygon(55% 0, 10% 58%, 45% 58%, 35% 100%, 90% 38%, 55% 38%); }
+  .nav { display: flex; align-items: center; gap: 4px; padding: 0 16px; }
+  .nav a { padding: 4px 8px; color: var(--muted); white-space: nowrap; }
+  .nav a.on { background: var(--ink); color: var(--bg); }
+  .menu-btn { display: none; margin-left: auto; align-items: center; padding: 0 16px; border-left: 1px solid var(--line); }
+
+  .page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  .crumbs { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); margin-bottom: 14px; }
+  .crumbs b { color: var(--ink); font-weight: 600; }
+  .pill { padding: 3px 8px; background: var(--info); color: #fff; }
+
+  /* Étapes */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); margin-bottom: 24px; background: var(--surface); }
+  .steps a { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-right: 1px solid var(--line); color: var(--muted); min-width: 0; }
+  .steps a:last-child { border-right: 0; }
+  .steps a.on { background: var(--ink); color: var(--bg); }
+  .steps .n { font-weight: 700; }
+  .steps .st { margin-left: auto; font-size: 11.5px; white-space: nowrap; }
+  .steps .st.ok { color: var(--ok); }
+  .steps a.on .st { color: #B9B8B0; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+
+  /* Sections */
+  .sec { border: 1px solid var(--line); background: var(--surface); margin-bottom: 24px; scroll-margin-top: 64px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .sec-head .title { color: var(--muted); }
+  .sec-head .title b { color: var(--ink); font-weight: 600; }
+  .sec-body { padding: 16px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .sub-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); margin: 20px 0 8px; flex-wrap: wrap; }
+  .sub-title:first-child { margin-top: 0; }
+  .sub-title .tag { white-space: normal; }
+
+  /* Champs */
+  .fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 16px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field > span { color: var(--muted); font-size: 11.5px; }
+  .field.wide { grid-column: span 2; }
+  input[type=text] { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line); background: var(--field); font-family: var(--mono); font-size: 14px; color: var(--ink); border-radius: 0; outline: none; }
+  input[type=text]:focus { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  input.r { text-align: right; }
+  input.err { border-color: var(--err); background: var(--err-bg); }
+  input:read-only { background: transparent; color: var(--muted); border-style: dashed; }
+  .calc { height: 38px; display: flex; align-items: center; padding: 0 10px; background: var(--bg); border: 1px solid var(--line); font-family: var(--mono); font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .check { display: flex; align-items: center; gap: 10px; height: 38px; }
+  .box { width: 18px; height: 18px; border: 1px solid var(--ink); background: var(--field); display: inline-block; }
+
+  /* Tableaux de saisie */
+  .tbl { width: 100%; border-collapse: collapse; }
+  .tbl th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--bg); white-space: nowrap; }
+  .tbl td { padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl .r { text-align: right; }
+  .tbl td.num { white-space: nowrap; }
+  .tbl input[type=text] { height: 34px; }
+  .tbl-wrap { border: 1px solid var(--line); overflow-x: auto; background: var(--field); }
+  .tbl tr.tot td { border-top: 1px solid var(--ink); font-weight: 700; background: var(--bg); }
+  .tbl .w-s { width: 110px; }
+  .tbl .w-m { width: 150px; }
+  .sw { display: inline-block; width: 8px; height: 8px; margin-right: 8px; }
+  .t1 { background: var(--t1); } .t2 { background: var(--t2); } .t3 { background: var(--t3); }
+
+  .total-check { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--line); margin-top: 14px; }
+  .total-check > div { padding: 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 5px; }
+  .total-check > div:last-child { border-right: 0; }
+  .total-check .v { font-family: var(--mono); font-weight: 700; font-size: 18px; }
+  .total-check .lbl { color: var(--muted); font-size: 11.5px; }
+
+  /* Étiquettes */
+  .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 6px; border: 1px solid; white-space: nowrap; display: inline-block; }
+  .tag.blue { color: var(--info); border-color: var(--info-line); background: var(--info-bg); }
+  .tag.orange { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
+  .tag.green { color: var(--ok); border-color: var(--ok-line); background: var(--ok-bg); }
+  .tag.red { color: var(--err); border-color: var(--err-line); background: var(--err-bg); }
+  .tag.grey { color: var(--muted); border-color: var(--line); background: var(--bg); }
+  .badge { font-family: var(--mono); font-weight: 700; font-size: 12px; padding: 3px 7px; color: #111; display: inline-block; }
+
+  /* Boutons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.sm { height: 30px; padding: 0 10px; font-size: 11px; }
+  .btn.icon { width: 34px; height: 34px; padding: 0; background: transparent; color: var(--ink); border: 1px solid var(--line); letter-spacing: 0; }
+  .btn.icon.done { border-color: var(--ok-line); background: var(--ok-bg); color: var(--ok); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Relevés */
+  .meter { border: 1px solid var(--line); background: var(--field); margin-bottom: 12px; }
+  .meter:last-child { margin-bottom: 0; }
+  .meter-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: var(--surface); }
+  .meter-head h4 { font-size: 16px; font-weight: 700; }
+  .meter-head .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .reading { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr) 120px 34px; gap: 10px; align-items: end; padding: 10px 12px; }
+  .reading + .reading { border-top: 1px dashed var(--line); }
+  .reading .who { font-weight: 600; align-self: center; }
+  .reading .who small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .reading .cons { text-align: right; align-self: center; }
+  .reading .cons b { font-family: var(--mono); font-size: 17px; }
+  .reading .cons small { display: block; color: var(--muted); font-size: 11.5px; }
+  .meter.vide { background: repeating-linear-gradient(135deg, var(--field) 0 10px, #F3F2EE 10px 20px); }
+  .meter-foot { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
+  .meter-foot .msg { font-size: 12.5px; }
+
+  /* Panneau de contrôle */
+  .aside { position: sticky; top: 68px; border: 1px solid var(--ink); background: var(--surface); }
+  .aside-head { background: var(--ink); color: var(--bg); padding: 12px 16px; display: flex; justify-content: space-between; }
+  .aside-head span:last-child { color: #B9B8B0; }
+  .aside-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .kv { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+  .kv .num { white-space: nowrap; }
+  .kv.sum { border-top: 1px solid var(--line); margin-top: 3px; padding-top: 7px; font-weight: 700; }
+  .gauge { position: relative; height: 10px; background: #E4E2DB; margin-top: 8px; }
+  .gauge .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); }
+  .gauge .fill.warn { background: var(--warn); }
+  .gauge .limit { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+  .gauge-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .checks { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .checks div { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .checks .ic { font-family: var(--mono); font-weight: 700; width: 18px; text-align: center; }
+  .checks .ic.ok { color: var(--ok); } .checks .ic.warn { color: var(--warn); } .checks .ic.err { color: var(--err); }
+  .checks .num { margin-left: auto; color: var(--muted); }
+  .aside .btn { width: 100%; }
+  .aside .btn[disabled] { background: var(--faint); cursor: not-allowed; }
+
+  .mobile-bar { display: none; }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .aside { position: static; }
+    .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    .page { padding: 16px 16px 90px; }
+    .brand { padding: 0 16px; font-size: 16px; }
+    .nav { display: none; }
+    .menu-btn { display: flex; }
+    .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .steps a { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 8px; font-size: 10.5px; letter-spacing: .04em; }
+    .crumbs .saved { display: none; }
+    .steps .lbl-long { display: none; }
+    .steps .st { margin-left: 0; }
+    .fields { grid-template-columns: 1fr 1fr; }
+    .field.wide { grid-column: 1 / -1; }
+    .total-check { grid-template-columns: 1fr; }
+    .total-check > div { border-right: 0; border-bottom: 1px solid var(--line); }
+    .total-check > div:last-child { border-bottom: 0; }
+    .reading { grid-template-columns: 1fr 1fr; }
+    .reading .who { grid-column: 1 / -1; }
+    .reading .cons { text-align: left; }
+    .reading .photo { justify-self: end; align-self: center; }
+    .hide-m { display: none; }
+    #facture .tbl th:nth-child(2), #facture .tbl td:nth-child(2) { display: none; }
+    #facture .tbl .w-m { width: 90px; }
+    .mobile-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--ink); color: var(--bg); padding: 10px 16px; align-items: center; gap: 12px; }
+    .mobile-bar .info { flex: 1; font-size: 12px; }
+    .mobile-bar .info b { display: block; font-size: 14px; }
+    .mobile-bar .btn { background: var(--bg); color: var(--ink); }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><i></i>PARTAGE JIRAMA</div>
+  <nav class="nav label">
+    <a class="on" href="#">Cycles</a>
+    <a href="#">Foyers</a>
+    <a href="#">Logements</a>
+    <a href="#">Tarifs</a>
+  </nav>
+  <button class="menu-btn label" aria-label="Menu">☰</button>
+</header>
+
+<div class="page">
+  <div class="crumbs label">
+    <span>Cycles</span><span>/</span><b>Septembre 2026</b><span>/</span><b>Saisie</b>
+    <span class="pill">Brouillon</span>
+    <span class="saved" style="margin-left:auto">Enregistré automatiquement · il y a 12 s</span>
+  </div>
+
+  <nav class="steps label">
+    <a href="#facture" class="on"><span class="n">01</span><span>Facture</span><span class="st" id="st1">✓</span></a>
+    <a href="#occupants"><span class="n">02</span><span>Occupants</span><span class="st ok">✓</span></a>
+    <a href="#releves"><span class="n">03</span><span>Relevés</span><span class="st" id="st3">7/7</span></a>
+    <a href="#controle"><span class="n">04</span><span>Contrôle</span><span class="st" id="st4">—</span></a>
+  </nav>
+
+  <div class="layout">
+    <div>
+      <!-- 01 / FACTURE -->
+      <section class="sec" id="facture">
+        <div class="sec-head">
+          <span class="title label">01 / <b>Facture JIRAMA</b></span>
+          <button class="btn ghost sm">Photo de la facture</button>
+        </div>
+        <div class="sec-body">
+          <div class="sub-title label">Compteur principal</div>
+          <div class="fields">
+            <label class="field"><span class="label">N° de facture</span><input type="text" value="FAC-EXEMPLE-0001"></label>
+            <label class="field"><span class="label">Mois facturé</span><input type="text" value="Septembre 2026"></label>
+            <label class="field"><span class="label">Coeff. de tranche</span><input type="text" class="r" id="coef" value="1"></label>
+            <label class="field"><span class="label">Puissance souscrite (kW)</span><input type="text" class="r" id="ps" value="3,3"></label>
+
+            <label class="field"><span class="label">Date ancien index</span><input type="text" id="d0" value="26/08/2026"></label>
+            <label class="field"><span class="label">Ancien index</span><input type="text" class="r" id="i0" value="30 400"></label>
+            <label class="field"><span class="label">Date nouvel index</span><input type="text" id="d1" value="25/09/2026"></label>
+            <label class="field"><span class="label">Nouvel index</span><input type="text" class="r" id="i1" value="30 710"></label>
+
+            <div class="field wide"><span class="label">Consommation facturée</span><div class="calc" id="xcalc">310 kWh · 30 jours</div></div>
+            <div class="field wide"><span class="label">Type de facture</span><div class="check"><span class="box"></span><span>Facture estimée (marquée « E »)</span></div></div>
+          </div>
+
+          <div class="sub-title label">
+            <span>Lignes de la facture</span>
+            <span class="tag grey">Grille « Tarif 20 Économique » · à vérifier avec les prix imprimés</span>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Ligne</th><th>Règle</th><th class="w-m r">Prix / taux</th><th class="r">kWh / base</th><th class="r">Montant recalculé</th></tr></thead>
+              <tbody>
+                <tr><td><span class="sw t1"></span>1ère tranche</td><td class="muted">0 – 130 kWh</td><td><input type="text" class="r" id="p1" value="340"></td><td class="r num" id="k1"></td><td class="r num" id="m1"></td></tr>
+                <tr><td><span class="sw t2"></span>2ème tranche</td><td class="muted">131 – 300 kWh</td><td><input type="text" class="r" id="p2" value="560"></td><td class="r num" id="k2"></td><td class="r num" id="m2"></td></tr>
+                <tr><td><span class="sw t3"></span>3ème tranche</td><td class="muted">au-delà de 300 kWh</td><td><input type="text" class="r" id="p3" value="764"></td><td class="r num" id="k3"></td><td class="r num" id="m3"></td></tr>
+                <tr><td>Redevance JIRAMA</td><td class="muted">montant fixe</td><td><input type="text" class="r" id="red" value="8 000"></td><td class="r num">—</td><td class="r num" id="mred"></td></tr>
+                <tr><td>Prime fixe</td><td class="muted">prix × puissance souscrite</td><td><input type="text" class="r" id="pf" value="3 018"></td><td class="r num" id="kpf"></td><td class="r num" id="mpf"></td></tr>
+                <tr><td>Taxe communale</td><td class="muted">% de l'énergie</td><td><input type="text" class="r" id="tc" value="3,5 %"></td><td class="r num kE"></td><td class="r num" id="mtc"></td></tr>
+                <tr><td>Surtaxe communale</td><td class="muted">% de l'énergie</td><td><input type="text" class="r" id="ts" value="0,5 %"></td><td class="r num kE"></td><td class="r num" id="mts"></td></tr>
+                <tr><td>Fonds national énergie durable</td><td class="muted">% de l'énergie</td><td><input type="text" class="r" id="tf" value="1,25 %"></td><td class="r num kE"></td><td class="r num" id="mtf"></td></tr>
+                <tr><td>TVA</td><td class="muted">franchise 100 kWh × prix T1</td><td><input type="text" class="r" id="tva" value="20 %"></td><td class="r num" id="ktva"></td><td class="r num" id="mtva"></td></tr>
+                <tr class="tot"><td>Total (3)</td><td></td><td></td><td></td><td class="r num" id="mtot"></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="total-check">
+            <div><span class="label lbl">Total imprimé sur la facture</span><input type="text" class="r" id="saisi" value="200 462,80"></div>
+            <div><span class="label lbl">Total recalculé</span><span class="v" id="recalc"></span></div>
+            <div><span class="label lbl">Différence</span><span class="v" id="diff"></span><span id="diffmsg" class="hint"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 / OCCUPANTS -->
+      <section class="sec" id="occupants">
+        <div class="sec-head">
+          <span class="title label">02 / <b>Occupants du cycle</b></span>
+          <div class="actions"><button class="btn ghost sm">+ Arrivée</button><button class="btn ghost sm">− Départ</button></div>
+        </div>
+        <div class="sec-body">
+          <p class="hint" style="margin-bottom:12px">Ne saisissez que les changements. Vacances : rien à faire, le foyer reste compté sur tout le cycle.</p>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Lgt</th><th>Occupant</th><th>Entrée</th><th>Sortie</th><th class="r">Jours</th><th class="r">Poids</th><th class="hide-m">Statut</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge" style="background:#3FB59A">L01</span></td><td><b>Foyer A</b></td><td class="num">12/01/2026</td><td class="num muted">—</td><td class="r num">30</td><td class="r num">1</td><td class="hide-m"><span class="tag blue">Présent</span></td></tr>
+                <tr><td><span class="badge" style="background:#E3559A">L02</span></td><td><b>Foyer B</b></td><td class="num">03/03/2025</td><td class="num muted">—</td><td class="r num">30</td><td class="r num">1</td><td class="hide-m"><span class="tag blue">Présent</span></td></tr>
+                <tr><td><span class="badge" style="background:#8CC63F">L03</span></td><td><b>Foyer C</b></td><td class="num">01/06/2024</td><td class="num muted">—</td><td class="r num">30</td><td class="r num">1</td><td class="hide-m"><span class="tag blue">Présent</span></td></tr>
+                <tr><td><span class="badge" style="background:#5B7CF0">L04</span></td><td><b>Foyer D</b></td><td class="num">15/02/2025</td><td class="num"><b>07/09/2026</b></td><td class="r num">12</td><td class="r num">0,4</td><td class="hide-m"><span class="tag orange">Sortant</span></td></tr>
+                <tr><td><span class="badge" style="background:#5B7CF0">L04</span></td><td><b>Foyer E</b></td><td class="num"><b>07/09/2026</b></td><td class="num muted">—</td><td class="r num">18</td><td class="r num">0,6</td><td class="hide-m"><span class="tag orange">Entrant</span></td></tr>
+                <tr><td><span class="badge" style="background:#F08A3C">L05</span></td><td class="muted">Vide depuis le 15/08/2026</td><td></td><td></td><td class="r num muted">0</td><td class="r num muted">0</td><td class="hide-m"><span class="tag grey">Vide</span></td></tr>
+                <tr class="tot"><td></td><td>5 participants</td><td></td><td></td><td></td><td class="r num">4,0</td><td class="hide-m"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 / RELEVÉS -->
+      <section class="sec" id="releves">
+        <div class="sec-head">
+          <span class="title label">03 / <b>Relevés des sous-compteurs</b></span>
+          <span class="tag blue">Relever le 25/09/2026 · tolérance ±1 j</span>
+        </div>
+        <div class="sec-body" id="meters"></div>
+      </section>
+    </div>
+
+    <!-- 04 / CONTRÔLE -->
+    <aside class="aside" id="controle">
+      <div class="aside-head label"><span>04 / Contrôle</span><span>En direct</span></div>
+      <div class="aside-body">
+        <div>
+          <div class="kv"><span>Compteur JIRAMA</span><span class="num" id="cX"></span></div>
+          <div class="kv"><span>Σ participants</span><span class="num" id="cQ"></span></div>
+          <div class="kv sum"><span>Écart</span><span class="num" id="cE"></span></div>
+          <div class="gauge"><div class="fill" id="gfill"></div><div class="limit" style="left:50%"></div></div>
+          <div class="gauge-legend num"><span>0 %</span><span>seuil 10 %</span><span>20 %</span></div>
+        </div>
+        <div class="checks" id="checks"></div>
+        <button class="btn" id="go">Calculer la répartition →</button>
+        <button class="btn ghost">Enregistrer le brouillon</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="mobile-bar">
+  <div class="info"><b id="mbE"></b><span id="mbS"></span></div>
+  <button class="btn" id="go2">Calculer →</button>
+</div>
+
+<script>
+  // Données fictives cohérentes avec l'exemple §6 de la spécification.
+  const meters = [
+    { lgt: "L01", color: "#3FB59A", title: "Foyer A", old: { date: "26/08/2026", idx: 1200 },
+      reads: [{ who: "Foyer A", sub: "30 jours", date: "25/09/2026", idx: 1220, part: true }] },
+    { lgt: "L02", color: "#E3559A", title: "Foyer B", old: { date: "26/08/2026", idx: 4510 },
+      reads: [{ who: "Foyer B", sub: "30 jours", date: "25/09/2026", idx: 4570, part: true }] },
+    { lgt: "L03", color: "#8CC63F", title: "Foyer C", old: { date: "26/08/2026", idx: 8840 },
+      reads: [{ who: "Foyer C", sub: "30 jours", date: "26/09/2026", idx: 9000, part: true }] },
+    { lgt: "L04", color: "#5B7CF0", title: "Foyer D → Foyer E", move: true, old: { date: "26/08/2026", idx: 2300 },
+      reads: [
+        { who: "Foyer D", sub: "Relevé de départ · 12 j", date: "07/09/2026", idx: 2318, part: true },
+        { who: "Foyer E", sub: "Fin de cycle · 18 j", date: "25/09/2026", idx: 2354, part: true },
+      ] },
+    { lgt: "L05", color: "#F08A3C", title: "Logement vide", vide: true, old: { date: "26/08/2026", idx: 615 },
+      reads: [{ who: "Aucun occupant", sub: "Va dans l'écart", date: "25/09/2026", idx: 617, part: false }] },
+  ];
+  const CYCLE_END = "25/09/2026";
+
+  const $ = id => document.getElementById(id);
+  const parse = s => parseFloat(String(s).replace(/[\s  %]/g, "").replace(",", ".")) || 0;
+  const fmt = (n, d = 2) => n.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const kwh = n => fmt(n, Number.isInteger(Math.round(n * 10) / 10) && Number.isInteger(n) ? 0 : 1);
+  const r2 = n => Math.round(n * 100) / 100;
+  const toDate = s => { const [d, m, y] = s.split("/").map(Number); return new Date(y, m - 1, d); };
+  const days = (a, b) => Math.round((toDate(b) - toDate(a)) / 86400000);
+
+  const camera = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>`;
+
+  // Rendu des compteurs
+  $("meters").innerHTML = meters.map((m, mi) => `
+    <div class="meter ${m.vide ? "vide" : ""}">
+      <div class="meter-head">
+        <span class="badge" style="background:${m.color}">${m.lgt}</span>
+        <h4>${m.title}</h4>
+        ${m.move ? '<span class="tag orange">Déménagement</span>' : ""}
+        ${m.vide ? '<span class="tag grey">Vide</span>' : ""}
+        <span class="right num muted">Index précédent ${fmt(m.old.idx, 0)} · ${m.old.date}</span>
+      </div>
+      ${m.reads.map((r, ri) => `
+        <div class="reading">
+          <div class="who">${r.who}<small>${r.sub}</small></div>
+          <label class="field"><span class="label">Date</span><input type="text" data-m="${mi}" data-r="${ri}" data-k="date" value="${r.date}"></label>
+          <label class="field"><span class="label">Index</span><input type="text" class="r" data-m="${mi}" data-r="${ri}" data-k="idx" value="${fmt(r.idx, 0)}"></label>
+          <div class="cons"><b id="c-${mi}-${ri}"></b><small>kWh</small></div>
+          <button class="btn icon photo ${mi !== 4 ? "done" : ""}" title="Photo du compteur" aria-label="Photo du compteur">${camera}</button>
+        </div>`).join("")}
+      <div class="meter-foot"><span class="msg" id="msg-${mi}"></span><span class="num muted" id="tot-${mi}"></span></div>
+    </div>`).join("");
+
+  document.querySelectorAll("#meters input").forEach(inp => inp.addEventListener("input", () => {
+    const r = meters[inp.dataset.m].reads[inp.dataset.r];
+    if (inp.dataset.k === "idx") r.idx = parse(inp.value); else r.date = inp.value;
+    update();
+  }));
+  document.querySelectorAll("#facture input").forEach(inp => inp.addEventListener("input", update));
+
+  function invoice() {
+    const i0 = parse($("i0").value), i1 = parse($("i1").value);
+    const X = i1 - i0;
+    const coef = parse($("coef").value) || 1;
+    const seuils = [130 * coef, 300 * coef, Infinity];
+    const prix = [parse($("p1").value), parse($("p2").value), parse($("p3").value)];
+    let prev = 0; const k = [], m = [];
+    seuils.forEach((s, i) => { const q = Math.max(0, Math.min(X, s) - prev); k.push(q); m.push(r2(q * prix[i])); prev = s; });
+    const E = m[0] + m[1] + m[2];
+    const red = parse($("red").value), ps = parse($("ps").value), pf = r2(parse($("pf").value) * ps);
+    const tc = r2(E * parse($("tc").value) / 100), ts = r2(E * parse($("ts").value) / 100), tf = r2(E * parse($("tf").value) / 100);
+    const franchise = Math.min(Math.max(X, 0), 100) * prix[0];
+    const base = E + red + pf + tc + ts + tf - franchise;
+    const tva = r2(Math.max(0, base) * parse($("tva").value) / 100);
+    const tot = r2(E + red + pf + tc + ts + tf + tva);
+    return { X, k, m, E, red, pf, ps, tc, ts, tf, base, franchise, tva, tot };
+  }
+
+  function update() {
+    const f = invoice();
+    const N = days($("d0").value, $("d1").value);
+    $("xcalc").textContent = `${fmt(f.X, 0)} kWh · ${N} jours`;
+    $("i1").classList.toggle("err", f.X < 0);
+    [1, 2, 3].forEach(i => { $("k" + i).textContent = kwh(f.k[i - 1]); $("m" + i).textContent = fmt(f.m[i - 1]); });
+    $("mred").textContent = fmt(f.red);
+    $("kpf").textContent = `× ${fmt(f.ps, 1)} kW`;
+    $("mpf").textContent = fmt(f.pf);
+    document.querySelectorAll(".kE").forEach(e => e.textContent = fmt(f.E));
+    $("mtc").textContent = fmt(f.tc); $("mts").textContent = fmt(f.ts); $("mtf").textContent = fmt(f.tf);
+    $("ktva").textContent = fmt(f.base);
+    $("mtva").textContent = fmt(f.tva);
+    $("mtot").textContent = fmt(f.tot);
+    $("recalc").textContent = fmt(f.tot);
+    const diff = r2(parse($("saisi").value) - f.tot);
+    const invOk = Math.abs(diff) <= 1;
+    $("diff").textContent = (diff > 0 ? "+" : "") + fmt(diff);
+    $("diff").style.color = invOk ? "var(--ok)" : "var(--err)";
+    $("diffmsg").textContent = invOk ? "✓ Facture cohérente" : "Vérifiez les prix, la puissance ou une ligne oubliée";
+    $("saisi").classList.toggle("err", !invOk);
+    $("st1").textContent = invOk ? "✓" : "!";
+
+    // Relevés
+    let Q = 0, vide = 0, warns = [], errs = [], filled = 0, total = 0;
+    meters.forEach((m, mi) => {
+      let prevIdx = m.old.idx, sum = 0, bad = false, msgs = [];
+      m.reads.forEach((r, ri) => {
+        total++;
+        const c = r.idx - prevIdx;
+        const cell = $(`c-${mi}-${ri}`);
+        const inp = document.querySelector(`#meters input[data-m="${mi}"][data-r="${ri}"][data-k="idx"]`);
+        if (r.idx) filled++;
+        if (c < 0) { bad = true; cell.textContent = "—"; inp.classList.add("err"); errs.push(`${m.lgt} : index en baisse`); msgs.push('<span class="tag red">Index en baisse</span>'); }
+        else { cell.textContent = kwh(c); inp.classList.remove("err"); sum += c; if (r.part) Q += c; else vide += c; }
+        prevIdx = r.idx;
+        if (ri === m.reads.length - 1) {
+          const gap = Math.abs(days(r.date, CYCLE_END));
+          if (gap === 1) { warns.push(`${m.lgt} relevé le ${r.date} (±1 j, toléré)`); msgs.push(`<span class="tag orange">Relevé le ${r.date} · ±1 j toléré</span>`); }
+          else if (gap > 1) { errs.push(`${m.lgt} relevé à ${gap} j de la facture`); msgs.push(`<span class="tag red">Relevé à ${gap} j de la facture</span>`); }
+        }
+      });
+      if (!bad && !msgs.length) msgs.push(m.vide ? '<span class="tag grey">Consommation sans occupant → écart</span>' : '<span class="tag green">OK</span>');
+      $(`msg-${mi}`).innerHTML = msgs.join(" ");
+      $(`tot-${mi}`).textContent = m.reads.length > 1 ? `Total logement ${kwh(sum)} kWh` : "";
+    });
+
+    const e = f.X - Q;
+    const pct = f.X > 0 ? e / f.X * 100 : 0;
+    $("cX").textContent = `${fmt(f.X, 1)} kWh`;
+    $("cQ").textContent = `− ${fmt(Q, 1)} kWh`;
+    $("cE").textContent = `${fmt(e, 1)} kWh · ${fmt(pct, 1)} %`;
+    const fill = $("gfill");
+    fill.style.width = Math.min(Math.max(pct, 0), 20) / 20 * 100 + "%";
+    fill.classList.toggle("warn", pct > 10 || pct < -2);
+    const ecartOk = pct <= 10 && pct >= -2;
+    if (!ecartOk) (pct < 0 ? errs : warns).push(pct < 0 ? "Écart négatif : erreur de relevé probable" : "Écart au-dessus du seuil de 10 %");
+
+    const rows = [
+      [invOk ? "ok" : "err", invOk ? "✓" : "✕", "Facture recalculée = saisie", (diff > 0 ? "+" : "") + fmt(diff)],
+      ["ok", "✓", "Occupants : 5 participants", "Σ poids 4,0"],
+      [filled === total ? "ok" : "err", filled === total ? "✓" : "✕", "Relevés saisis", `${filled}/${total}`],
+      [ecartOk ? "ok" : "warn", ecartOk ? "✓" : "!", ecartOk ? "Écart sous le seuil" : (pct < 0 ? "Écart négatif" : "Écart au-dessus du seuil"), `${fmt(pct, 1)} %`],
+      ["ok", "i", `Logement vide : ${kwh(vide)} kWh dans l'écart`, ""],
+      ...warns.filter(w => !w.startsWith("Écart")).map(w => ["warn", "!", w, ""]),
+      ...errs.map(w => ["err", "✕", w, ""]),
+    ];
+    $("checks").innerHTML = rows.map(([c, ic, t, v]) => `<div><span class="ic ${c}">${ic}</span><span>${t}</span><span class="num">${v}</span></div>`).join("");
+    const blocking = errs.length > 0 || !invOk;
+    $("go").disabled = blocking; $("go2").disabled = blocking;
+    $("go").textContent = blocking ? "Corrigez les erreurs" : "Calculer la répartition →";
+    $("st3").textContent = `${filled}/${total}`;
+    $("st4").textContent = blocking ? "✕" : (warns.length || !ecartOk ? "!" : "✓");
+    $("mbE").textContent = `Écart ${fmt(e, 1)} kWh · ${fmt(pct, 1)} %`;
+    $("mbS").textContent = blocking ? `${errs.length + (invOk ? 0 : 1)} erreur(s) à corriger` : `${warns.length} avertissement(s) · prêt`;
+  }
+  update();
+</script>
+</body>
+</html>
