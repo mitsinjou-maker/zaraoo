@@ -9,6 +9,7 @@ import {
   type RelevesLogement,
   type ResultatCycle,
 } from "@partage-jirama/moteur";
+import { PARAMETRES_SAISIS_PAR_DEFAUT, versParametresMoteur, type ParametresSaisis } from "./reglages";
 
 // ---------------------------------------------------------------------------
 // Brouillon d'un cycle, tel que l'admin le saisit. Les valeurs non encore saisies sont `null`.
@@ -51,6 +52,30 @@ export interface RelevesSaisis {
   indexFin: number | null;
   /** Relevés aux jours de déménagement, par date. */
   intermediaires: Record<DateISO, number | null>;
+  /** Sous-compteur remplacé pendant le cycle (spécification §8). */
+  remplacement?: RemplacementCompteur | null;
+}
+
+/**
+ * Remplacement d'un sous-compteur : dernier index de l'ancien et premier index du nouveau, le même
+ * jour. Les relevés saisis après cette date sont lus sur le nouveau compteur.
+ */
+export interface RemplacementCompteur {
+  date: DateISO | null;
+  indexAncien: number | null;
+  indexNouveau: number | null;
+}
+
+/**
+ * Régularisation d'une facture estimée (spécification §8) : la facture suivante couvre aussi la
+ * période estimée ; chaque foyer est crédité de ce qu'il a payé pour le cycle estimé.
+ */
+export interface Regularisation {
+  cycleId: string;
+  mois: string;
+  /** TOTAL (3) de la facture estimée. */
+  totalEstime: number;
+  credits: { occupantId: string; nom: string; montant: number }[];
 }
 
 export interface BrouillonCycle {
@@ -67,6 +92,10 @@ export interface BrouillonCycle {
     puissanceKw: number | null;
     estimee: boolean;
     totalSaisi: number | null;
+    /** Ligne (4) « Déduction sur facture estimée antérieure ». */
+    deductionEstimee?: number | null;
+    /** Présent quand ce cycle régularise un cycle validé sur facture estimée. */
+    regularisation?: Regularisation | null;
   };
   tarif: TarifSaisi;
   logements: Logement[];
@@ -182,6 +211,19 @@ export function datesIntermediaires(b: BrouillonCycle, logementId: string): Date
   return [...dates].sort();
 }
 
+/** Valeur à ajouter aux index du nouveau compteur pour les ramener sur l'échelle de l'ancien. */
+export function decalageRemplacement(r: RelevesSaisis): number | null {
+  const rem = r.remplacement;
+  return rem && rem.indexAncien !== null && rem.indexNouveau !== null ? rem.indexAncien - rem.indexNouveau : null;
+}
+
+/** Index ramené sur l'échelle de l'ancien compteur s'il a été relevé après un remplacement. */
+export function indexCorrige(r: RelevesSaisis, date: DateISO | null, index: number): number {
+  const rem = r.remplacement;
+  const decalage = decalageRemplacement(r);
+  return rem?.date && date && date > rem.date && decalage !== null ? index + decalage : index;
+}
+
 function versGrille(tarif: TarifSaisi, puissanceKw: number): GrilleTarifaire | null {
   const { tranches, fraisFixes, taxes, tvaPourcent } = tarif;
   if (tranches.some((t) => t.prixKwh === null)) return null;
@@ -215,12 +257,14 @@ export interface Analyse {
   occupations: OccupationDuCycle[];
   manquants: Manquant[];
   releves: { saisis: number; attendus: number };
+  /** Règles de répartition appliquées. */
+  parametres: ParametresSaisis;
   /** Calcul complet du moteur, disponible dès que toutes les données obligatoires sont saisies. */
   resultat: ResultatCycle | null;
 }
 
 /** Contrôle le brouillon et, s'il est complet, lance le moteur de répartition. */
-export function analyserBrouillon(b: BrouillonCycle): Analyse {
+export function analyserBrouillon(b: BrouillonCycle, parametres: ParametresSaisis = PARAMETRES_SAISIS_PAR_DEFAUT): Analyse {
   const manquants: Manquant[] = [];
   const f = b.facture;
   const manque = (section: Section, message: string, logementId?: string) => manquants.push({ section, message, logementId });
@@ -257,14 +301,29 @@ export function analyserBrouillon(b: BrouillonCycle): Analyse {
     const intermediaires = datesIntermediaires(b, l.id);
     attendus += intermediaires.length;
     saisis += intermediaires.filter((d) => r.intermediaires[d] != null).length;
+
+    const rem = r.remplacement;
+    if (rem) {
+      attendus += 2;
+      saisis += (rem.indexAncien !== null ? 1 : 0) + (rem.indexNouveau !== null ? 1 : 0);
+      if (!rem.date || rem.indexAncien === null || rem.indexNouveau === null) {
+        manque("releves", `${l.id} : compteur remplacé, date et index à saisir.`, l.id);
+      } else if (f.dateDebut && f.dateFin && !(rem.date > f.dateDebut && rem.date < f.dateFin)) {
+        manque("releves", `${l.id} : la date du remplacement doit être à l'intérieur du cycle.`, l.id);
+      }
+    }
+
     if (r.indexDebut !== null && r.indexFin !== null && f.dateDebut && dateFinReleve) {
+      // Index du nouveau compteur ramenés sur l'échelle de l'ancien : le moteur voit une série continue.
+      const points = intermediaires
+        .filter((d) => r.intermediaires[d] != null)
+        .map((d) => ({ date: d, index: indexCorrige(r, d, r.intermediaires[d]!) }));
+      if (rem?.date && rem.indexAncien !== null) points.push({ date: rem.date, index: rem.indexAncien });
       relevesMoteur.push({
         logementId: l.id,
         debut: { date: f.dateDebut, index: r.indexDebut },
-        fin: { date: dateFinReleve, index: r.indexFin },
-        intermediaires: intermediaires
-          .filter((d) => r.intermediaires[d] != null)
-          .map((d) => ({ date: d, index: r.intermediaires[d]! })),
+        fin: { date: dateFinReleve, index: indexCorrige(r, dateFinReleve, r.indexFin) },
+        intermediaires: points,
       });
     }
   }
@@ -288,11 +347,25 @@ export function analyserBrouillon(b: BrouillonCycle): Analyse {
         sortie: o.sortie,
       })),
       releves: relevesMoteur,
-      parametres: { forcerFacture: b.parametres.forcerFacture, forcerEcart: b.parametres.forcerEcart },
+      parametres: {
+        ...versParametresMoteur(parametres),
+        forcerFacture: b.parametres.forcerFacture,
+        forcerEcart: b.parametres.forcerEcart,
+      },
     };
     resultat = repartirCycle(entree);
   }
 
   const datesCompletes = joursCycle !== null && joursCycle > 0;
-  return { datesCompletes, joursCycle, kwhFactures, facture, occupations, manquants, releves: { saisis, attendus }, resultat };
+  return {
+    datesCompletes,
+    joursCycle,
+    kwhFactures,
+    facture,
+    occupations,
+    manquants,
+    releves: { saisis, attendus },
+    parametres,
+    resultat,
+  };
 }

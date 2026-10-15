@@ -1,5 +1,6 @@
 import { Badge, Button, Menu, ActionIcon } from "@mantine/core";
 import { aPayer, kwh, montant, poids } from "../../domaine/format";
+import type { NetFoyer } from "../../domaine/regularisation";
 import { COULEURS_TRANCHES, type FoyerAffiche, type LogementVide } from "../../domaine/repartition";
 import { PastilleLogement } from "../Section";
 
@@ -10,9 +11,11 @@ interface PropsFoyer {
   kwhMax: number;
   telecharger: () => void;
   voirSiSeul: () => void;
+  /** Cycle de régularisation : ce que le foyer a déjà payé sur la facture estimée, et le net. */
+  regularisation?: NetFoyer & { mois: string };
 }
 
-export function CarteFoyer({ foyer, joursCycle, kwhMax, telecharger, voirSiSeul }: PropsFoyer) {
+export function CarteFoyer({ foyer, joursCycle, kwhMax, telecharger, voirSiSeul, regularisation }: PropsFoyer) {
   const p = foyer.participant;
   return (
     <article className="pj-carte">
@@ -72,9 +75,19 @@ export function CarteFoyer({ foyer, joursCycle, kwhMax, telecharger, voirSiSeul 
             </>
           )}
         </div>
+        {regularisation && (
+          <div className="pj-lignes">
+            <span>Part réelle (deux périodes)</span>
+            <span>{aPayer(p.totalArrondi)}</span>
+            <span>Déjà payé · {regularisation.mois}</span>
+            <span>− {aPayer(regularisation.credit)}</span>
+          </div>
+        )}
         <div className="pj-total-foyer">
-          <b>{aPayer(p.totalArrondi)} Ar</b>
-          <span>{kwh(p.prixMoyenKwh)} Ar/kWh</span>
+          <b>{aPayer(Math.abs(regularisation ? regularisation.net : p.totalArrondi))} Ar</b>
+          <span>
+            {!regularisation ? `${kwh(p.prixMoyenKwh)} Ar/kWh` : regularisation.net < 0 ? "à rembourser au foyer" : "net à payer"}
+          </span>
         </div>
       </div>
       <div className="pj-carte-actions">

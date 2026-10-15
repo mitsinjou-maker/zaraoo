@@ -1,6 +1,7 @@
-import { Badge, Checkbox, SimpleGrid, Table, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Checkbox, SimpleGrid, Table, TextInput } from "@mantine/core";
 import type { Analyse, BrouillonCycle } from "../domaine/brouillon";
-import { entier, kwh, montant } from "../domaine/format";
+import { aPayer, dateFr, entier, kwh, montant } from "../domaine/format";
+import { grilleEnVigueur, memeTarif, tarifDeGrille, type Reglages } from "../domaine/reglages";
 import { COULEURS_TRANCHES } from "../domaine/repartition";
 import { ChampDate, ChampNombre } from "./Champs";
 import { Section } from "./Section";
@@ -8,18 +9,24 @@ import { Section } from "./Section";
 interface Props {
   brouillon: BrouillonCycle;
   analyse: Analyse;
+  reglages: Reglages;
   modifier: (m: (b: BrouillonCycle) => void) => void;
 }
 
-export function SectionFacture({ brouillon, analyse, modifier }: Props) {
+export function SectionFacture({ brouillon, analyse, reglages, modifier }: Props) {
   const f = brouillon.facture;
   const t = brouillon.tarif;
   const calcul = analyse.facture;
   const coef = f.coefficientTranche ?? 1;
   const indexEnBaisse = analyse.kwhFactures !== null && analyse.kwhFactures < 0;
+  const regul = f.regularisation ?? null;
 
   const difference = calcul && f.totalSaisi !== null ? Math.round((f.totalSaisi - calcul.total) * 100) / 100 : null;
-  const coherent = difference !== null && Math.abs(difference) <= 1;
+  const coherent = difference !== null && Math.abs(difference) <= analyse.parametres.toleranceFactureAr;
+
+  // Grille de la page Tarifs en vigueur à la date de la facture, si le cycle en utilise une autre.
+  const grille = grilleEnVigueur(reglages, f.dateFin);
+  const grilleDifferente = grille !== undefined && !memeTarif(t, grille.tarif);
 
   const regle = (i: number) => {
     const plafond = t.tranches[i].plafondKwh;
@@ -34,8 +41,18 @@ export function SectionFacture({ brouillon, analyse, modifier }: Props) {
       id="facture"
       numero="01"
       titre="Facture JIRAMA"
-      actions={f.estimee ? <Badge color="orange">Facture estimée</Badge> : undefined}
+      actions={
+        f.estimee ? <Badge color="orange">Facture estimée</Badge> : regul ? <Badge color="blue">Régularisation</Badge> : undefined
+      }
     >
+      {regul && (
+        <Alert color="blue" variant="light" radius={0} mb="md" title={`Régularisation de la facture estimée de ${regul.mois}`}>
+          La facture de {regul.mois} ({aPayer(regul.totalEstime)} Ar) avait été estimée. Ce cycle repart donc du dernier index
+          réel{f.dateDebut ? `, le ${dateFr(f.dateDebut)}` : ""}, et couvre les deux périodes : saisissez la nouvelle facture
+          telle qu'elle est imprimée (ancien index réel, coefficient de tranche — souvent 2 pour deux mois —, total (3) avant
+          déduction). Chaque foyer paiera sa part moins ce qu'il a déjà payé pour {regul.mois}.
+        </Alert>
+      )}
       <div className="pj-sous-titre pj-libelle">Compteur principal</div>
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md" verticalSpacing="sm">
         <TextInput
@@ -107,8 +124,27 @@ export function SectionFacture({ brouillon, analyse, modifier }: Props) {
               modifier((b) => void (b.facture.estimee = v));
             }}
           />
+          {f.estimee && (
+            <p className="pj-aide" style={{ margin: "6px 0 0" }}>
+              Le cycle se valide normalement. Le suivant reprendra depuis le dernier index réel pour régulariser : chaque
+              foyer sera crédité de ce qu'il paie maintenant.
+            </p>
+          )}
         </div>
       </SimpleGrid>
+
+      {grilleDifferente && (
+        <Alert color="orange" variant="light" radius={0} mt="md">
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <span style={{ flex: 1, minWidth: 220 }}>
+              Les prix ci-dessous diffèrent de la grille « {grille.nom} », en vigueur depuis le {dateFr(grille.dateEffet)}.
+            </span>
+            <Button size="xs" onClick={() => modifier((b) => void (b.tarif = tarifDeGrille(grille)))}>
+              Appliquer cette grille
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       <div className="pj-sous-titre pj-libelle">
         <span>Lignes de la facture</span>
@@ -208,7 +244,7 @@ export function SectionFacture({ brouillon, analyse, modifier }: Props) {
       <div className="pj-controle-total">
         <div>
           <ChampNombre
-            label="Total imprimé sur la facture"
+            label={regul ? "Total (3) imprimé, avant déduction" : "Total imprimé sur la facture"}
             decimalScale={2}
             fixedDecimalScale
             valeur={f.totalSaisi}
@@ -238,6 +274,33 @@ export function SectionFacture({ brouillon, analyse, modifier }: Props) {
           )}
         </div>
       </div>
+
+      {regul && (
+        <div className="pj-controle-total">
+          <div>
+            <ChampNombre
+              label="Déduction sur facture estimée (4)"
+              decimalScale={2}
+              fixedDecimalScale
+              placeholder={montant(regul.totalEstime)}
+              valeur={f.deductionEstimee ?? null}
+              onValeur={(v) => modifier((b) => void (b.facture.deductionEstimee = v))}
+              styles={{ input: { textAlign: "right" } }}
+            />
+          </div>
+          <div>
+            <span className="pj-label-champ">Net à payer à la JIRAMA</span>
+            <span className="v">
+              {f.totalSaisi !== null ? montant(f.totalSaisi - (f.deductionEstimee ?? regul.totalEstime)) : "—"}
+            </span>
+          </div>
+          <div>
+            <span className="pj-label-champ">Déjà payé par les foyers</span>
+            <span className="v">{montant(regul.credits.reduce((s, c) => s + c.montant, 0))}</span>
+            <span className="pj-aide">pour {regul.mois}</span>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

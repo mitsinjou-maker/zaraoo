@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Partage JIRAMA — chaque admin ne voit que ses propres données.
 // - utilisateurs/{uid}/brouillon/courant : cycle en cours de saisie (lecture et écriture libres pour l'admin) ;
+// - utilisateurs/{uid}/reglages/courant  : grilles tarifaires et règles de répartition (idem) ;
 // - utilisateurs/{uid}/cycles/{id}       : cycles validés, figés. Jamais modifiés ; supprimés seulement pour
 //                                          annuler une validation, dans les 30 jours qui la suivent.
 service cloud.firestore {
@@ -12,6 +13,11 @@ service cloud.firestore {
 
     match /utilisateurs/{uid} {
       match /brouillon/{docId} {
+        allow read, write: if estAdmin(uid) && docId == 'courant';
+      }
+
+      // Grilles tarifaires et règles de répartition.
+      match /reglages/{docId} {
         allow read, write: if estAdmin(uid) && docId == 'courant';
       }
 

@@ -55,6 +55,17 @@ describe("brouillon du cycle en cours", () => {
   });
 });
 
+describe("réglages (grilles et règles)", () => {
+  it("l'admin lit et écrit les siens, personne d'autre", async () => {
+    const reglages = (db: ReturnType<typeof admin>) => db.doc("utilisateurs/admin/reglages/courant");
+    await assertSucceeds(reglages(admin()).set({ version: 1 }));
+    await assertSucceeds(reglages(admin()).get());
+    await assertFails(reglages(autre()).get());
+    await assertFails(reglages(anonyme()).set({ version: 1 }));
+    await assertFails(admin().doc("utilisateurs/admin/reglages/autre").set({ version: 1 }));
+  });
+});
+
 describe("cycles validés", () => {
   it("l'admin crée et relit un cycle validé", async () => {
     await assertSucceeds(cycle(admin()).set(donneesCycle()));

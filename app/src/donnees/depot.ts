@@ -1,5 +1,6 @@
 import type { BrouillonCycle } from "../domaine/brouillon";
 import { resumer, type CycleValide, type ResumeCycle } from "../domaine/cycles";
+import type { Reglages } from "../domaine/reglages";
 
 /**
  * Accès aux données. Les écrans ne connaissent que cette interface : elle est implémentée
@@ -21,10 +22,14 @@ export interface Depot {
   validerCycle(cycle: CycleValide, suivant: BrouillonCycle): Promise<void>;
   /** Annule la validation : supprime le cycle et en refait le brouillon en cours, ensemble. */
   annulerValidation(cycle: CycleValide): Promise<void>;
+  /** Grilles tarifaires et règles de répartition (`null` si jamais enregistrées). */
+  chargerReglages(): Promise<Reglages | null>;
+  enregistrerReglages(reglages: Reglages): Promise<void>;
 }
 
 const CLE_BROUILLON = "partage-jirama:brouillon-cycle";
 const CLE_CYCLES = "partage-jirama:cycles";
+const CLE_REGLAGES = "partage-jirama:reglages";
 
 function lire<T>(cle: string): T | null {
   try {
@@ -72,5 +77,12 @@ export const depotLocal: Depot = {
       (lire<CycleValide[]>(CLE_CYCLES) ?? []).filter((c) => c.id !== cycle.id),
     );
     ecrire(CLE_BROUILLON, cycle.brouillon);
+  },
+  async chargerReglages() {
+    const r = lire<Reglages>(CLE_REGLAGES);
+    return r?.version === 1 ? r : null;
+  },
+  async enregistrerReglages(reglages) {
+    ecrire(CLE_REGLAGES, reglages);
   },
 };

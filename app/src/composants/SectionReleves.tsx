@@ -1,7 +1,8 @@
-import { Badge } from "@mantine/core";
+import { Badge, Button } from "@mantine/core";
 import type { Diagnostic } from "@partage-jirama/moteur";
 import {
   datesIntermediaires,
+  indexCorrige,
   relevesVides,
   type Analyse,
   type BrouillonCycle,
@@ -25,7 +26,13 @@ export function SectionReleves({ brouillon, analyse, modifier }: Props) {
       id="releves"
       numero="03"
       titre="Relevés des sous-compteurs"
-      actions={dateFin ? <Badge color="blue">Relever le {dateFr(dateFin)} · tolérance ±1 j</Badge> : undefined}
+      actions={
+        dateFin ? (
+          <Badge color="blue">
+            Relever le {dateFr(dateFin)} · tolérance ±{analyse.parametres.toleranceJoursReleve} j
+          </Badge>
+        ) : undefined
+      }
     >
       {brouillon.logements.length === 0 && <p className="pj-aide">Ajoutez d'abord un logement (section 02).</p>}
       {brouillon.logements.map((l) => (
@@ -41,8 +48,10 @@ interface Ligne {
   detail: string;
   date: string | null;
   index: number | null;
-  /** Date modifiable (relevé de fin uniquement). */
-  dateModifiable?: boolean;
+  /** Date modifiable (relevé de fin, remplacement du compteur). */
+  changerDate?: (r: RelevesSaisis, v: string | null) => void;
+  /** Premier index d'un nouveau compteur : la consommation repart de lui. */
+  reprise?: boolean;
   obligatoire: boolean;
   enregistrer: (r: RelevesSaisis, v: number | null) => void;
 }
@@ -50,10 +59,52 @@ interface Ligne {
 function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { logement: Logement }) {
   const f = brouillon.facture;
   const r = brouillon.releves[logement.id] ?? relevesVides();
+  const rem = r.remplacement ?? null;
   const occupations = analyse.occupations.filter((o) => o.occupation.logementId === logement.id).map((o) => o.occupation);
   const vide = occupations.length === 0;
   const finDeCycle = f.dateFin;
   const presentsALaFin = occupations.filter((o) => o.sortie === null || (finDeCycle !== null && o.sortie >= finDeCycle));
+  const changerReleves = (m: (x: RelevesSaisis) => void) => modifier((b) => m((b.releves[logement.id] ??= relevesVides())));
+
+  const demenagements = datesIntermediaires(brouillon, logement.id).map((d): Ligne => {
+    const partants = occupations.filter((o) => o.sortie === d).map((o) => `départ de ${o.nom}`);
+    const arrivants = occupations.filter((o) => o.entree === d).map((o) => `arrivée de ${o.nom}`);
+    return {
+      cle: d,
+      qui: "Déménagement",
+      detail: [...partants, ...arrivants].join(" · ") || "changement d'occupant",
+      date: d,
+      index: r.intermediaires[d] ?? null,
+      obligatoire: false,
+      enregistrer: (x, v) => void (x.intermediaires[d] = v),
+    };
+  });
+  // Un relevé du jour du remplacement est lu sur l'ancien compteur ; les suivants sur le nouveau.
+  const avantRemplacement = (l: Ligne) => !rem?.date || (l.date !== null && l.date <= rem.date);
+  const remplacement: Ligne[] = rem
+    ? [
+        {
+          cle: "rem-ancien",
+          qui: "Ancien compteur",
+          detail: "Dernier index avant la dépose",
+          date: rem.date,
+          changerDate: (x, v) => void (x.remplacement && (x.remplacement.date = v)),
+          index: rem.indexAncien,
+          obligatoire: true,
+          enregistrer: (x, v) => void (x.remplacement && (x.remplacement.indexAncien = v)),
+        },
+        {
+          cle: "rem-nouveau",
+          qui: "Nouveau compteur",
+          detail: "Index affiché à la pose",
+          date: rem.date,
+          reprise: true,
+          index: rem.indexNouveau,
+          obligatoire: true,
+          enregistrer: (x, v) => void (x.remplacement && (x.remplacement.indexNouveau = v)),
+        },
+      ]
+    : [];
 
   const lignes: Ligne[] = [
     {
@@ -65,25 +116,15 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
       obligatoire: true,
       enregistrer: (x, v) => void (x.indexDebut = v),
     },
-    ...datesIntermediaires(brouillon, logement.id).map((d): Ligne => {
-      const partants = occupations.filter((o) => o.sortie === d).map((o) => `départ de ${o.nom}`);
-      const arrivants = occupations.filter((o) => o.entree === d).map((o) => `arrivée de ${o.nom}`);
-      return {
-        cle: d,
-        qui: "Déménagement",
-        detail: [...partants, ...arrivants].join(" · ") || "changement d'occupant",
-        date: d,
-        index: r.intermediaires[d] ?? null,
-        obligatoire: false,
-        enregistrer: (x, v) => void (x.intermediaires[d] = v),
-      };
-    }),
+    ...demenagements.filter(avantRemplacement),
+    ...remplacement,
+    ...demenagements.filter((l) => !avantRemplacement(l)),
     {
       cle: "fin",
       qui: presentsALaFin.map((o) => o.nom).join(", ") || "Aucun occupant",
       detail: vide ? "Consommation comptée dans l'écart" : "Fin de cycle",
       date: r.dateFin ?? f.dateFin,
-      dateModifiable: true,
+      changerDate: (x, v) => void (x.dateFin = v),
       index: r.indexFin,
       obligatoire: true,
       enregistrer: (x, v) => void (x.indexFin = v),
@@ -94,13 +135,15 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
   let precedent: { index: number; date: string | null } | null = null;
   const consos = lignes.map((l) => {
     if (l.index === null) return { kwh: null as number | null, depuis: null as string | null, enBaisse: false };
-    const res = precedent
-      ? { kwh: l.index - precedent.index, depuis: precedent.date, enBaisse: l.index < precedent.index }
-      : { kwh: null, depuis: null, enBaisse: false };
+    const res =
+      precedent && !l.reprise
+        ? { kwh: l.index - precedent.index, depuis: precedent.date, enBaisse: l.index < precedent.index }
+        : { kwh: null, depuis: null, enBaisse: false };
     precedent = { index: l.index, date: l.date };
     return res;
   });
-  const total = r.indexDebut !== null && r.indexFin !== null ? r.indexFin - r.indexDebut : null;
+  const total =
+    r.indexDebut !== null && r.indexFin !== null ? indexCorrige(r, r.dateFin ?? f.dateFin, r.indexFin) - r.indexDebut : null;
 
   const diagnostics: Diagnostic[] = (analyse.resultat?.diagnostics ?? []).filter((d) => d.logementId === logement.id);
   const manquants = analyse.manquants.filter((m) => m.logementId === logement.id);
@@ -131,11 +174,11 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
               {l.qui}
               <small>{l.detail}</small>
             </div>
-            {l.dateModifiable ? (
+            {l.changerDate ? (
               <ChampDate
-                label="Date"
+                label={l.cle === "rem-ancien" ? "Date du remplacement" : "Date"}
                 valeur={l.date}
-                onValeur={(v) => modifier((b) => void ((b.releves[logement.id] ??= relevesVides()).dateFin = v))}
+                onValeur={(v) => changerReleves((x) => l.changerDate!(x, v))}
               />
             ) : (
               <div>
@@ -149,7 +192,7 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
               label="Index"
               placeholder={l.obligatoire ? undefined : "facultatif"}
               valeur={l.index}
-              onValeur={(v) => modifier((b) => l.enregistrer((b.releves[logement.id] ??= relevesVides()), v))}
+              onValeur={(v) => changerReleves((x) => l.enregistrer(x, v))}
               error={c.enBaisse ? "Index en baisse" : undefined}
               styles={{ input: { textAlign: "right" } }}
             />
@@ -160,7 +203,7 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
                   <small>kWh depuis le {dateFr(c.depuis)}</small>
                 </>
               ) : (
-                <small>{i === 0 ? "" : "—"}</small>
+                <small>{l.reprise ? "la consommation repart de cet index" : i === 0 ? "" : "—"}</small>
               )}
             </div>
           </div>
@@ -184,6 +227,20 @@ function BlocCompteur({ logement, brouillon, analyse, modifier }: Props & { loge
             ))}
           {!enBaisse && manquants.length === 0 && diagnostics.length === 0 && <Badge color="green">OK</Badge>}
         </span>
+        {rem ? (
+          <Button size="compact-xs" variant="subtle" color="gray" onClick={() => changerReleves((x) => void (x.remplacement = null))}>
+            Retirer le remplacement
+          </Button>
+        ) : (
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="gray"
+            onClick={() => changerReleves((x) => void (x.remplacement = { date: null, indexAncien: null, indexNouveau: null }))}
+          >
+            Compteur remplacé ?
+          </Button>
+        )}
       </div>
     </div>
   );

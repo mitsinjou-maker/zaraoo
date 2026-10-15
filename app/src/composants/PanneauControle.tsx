@@ -2,6 +2,7 @@ import { Button, Checkbox } from "@mantine/core";
 import type { Diagnostic, NiveauDiagnostic } from "@partage-jirama/moteur";
 import type { Analyse, BrouillonCycle } from "../domaine/brouillon";
 import { kwh, montant, poids as formatPoids, pourcent } from "../domaine/format";
+import { bilanRegularisation } from "../domaine/regularisation";
 
 interface Verification {
   niveau: NiveauDiagnostic | "ok";
@@ -21,7 +22,7 @@ function verifications(brouillon: BrouillonCycle, analyse: Analyse): Verificatio
 
   if (analyse.facture && f.totalSaisi !== null) {
     const diff = Math.round((f.totalSaisi - analyse.facture.total) * 100) / 100;
-    const coherent = Math.abs(diff) <= 1;
+    const coherent = Math.abs(diff) <= analyse.parametres.toleranceFactureAr;
     liste.push({
       niveau: coherent ? "ok" : brouillon.parametres.forcerFacture ? "avertissement" : "erreur",
       texte: coherent ? "Facture recalculée = saisie" : "Facture saisie ≠ recalculée",
@@ -58,6 +59,19 @@ function verifications(brouillon: BrouillonCycle, analyse: Analyse): Verificatio
     }
   }
 
+  const bilan = bilanRegularisation(brouillon, res);
+  if (bilan) {
+    const ecartDeduction = Math.abs(bilan.differenceDeduction) > analyse.parametres.toleranceFactureAr;
+    liste.push({
+      niveau: ecartDeduction ? "avertissement" : "ok",
+      texte: ecartDeduction ? "Déduction (4) ≠ payé par les foyers" : "Déduction (4) = payé par les foyers",
+      valeur: ecartDeduction ? `${bilan.differenceDeduction > 0 ? "+" : ""}${montant(bilan.differenceDeduction)}` : undefined,
+    });
+    for (const c of bilan.creditsSansParticipant) {
+      liste.push({ niveau: "info", texte: `${c.nom} n'est plus là : ${montant(c.montant)} Ar payés sur la facture estimée, à régler à part` });
+    }
+  }
+
   for (const m of analyse.manquants.filter((x) => x.section !== "releves")) {
     liste.push({ niveau: "erreur", texte: m.message });
   }
@@ -82,7 +96,8 @@ export function PanneauControle({ brouillon, analyse, modifier, calculer }: Prop
   const factureEnCause = diagnostics.some((d) => d.code === "FACTURE_INCOHERENTE");
   const ecartEnCause = diagnostics.some((d) => d.code === "ECART_ELEVE" || d.code === "ECART_NEGATIF");
   const relatif = ecart?.ecartRelatif ?? 0;
-  const horsSeuil = relatif > 0.1 || relatif < -0.02;
+  const seuil = analyse.parametres.seuilEcartPositifPourcent / 100;
+  const horsSeuil = relatif > seuil || relatif < -analyse.parametres.seuilEcartNegatifPourcent / 100;
 
   return (
     <aside className="pj-panneau" id="controle">
@@ -108,14 +123,14 @@ export function PanneauControle({ brouillon, analyse, modifier, calculer }: Prop
             <div
               className="remplissage"
               data-alerte={horsSeuil || undefined}
-              style={{ width: `${(Math.min(Math.max(relatif, 0), 0.2) / 0.2) * 100}%` }}
+              style={{ width: `${(Math.min(Math.max(relatif, 0), 2 * seuil) / (2 * seuil)) * 100}%` }}
             />
             <div className="seuil" />
           </div>
           <div className="pj-jauge-legende pj-num">
             <span>0 %</span>
-            <span>seuil 10 %</span>
-            <span>20 %</span>
+            <span>seuil {pourcent(seuil)}</span>
+            <span>{pourcent(2 * seuil)}</span>
           </div>
         </div>
 

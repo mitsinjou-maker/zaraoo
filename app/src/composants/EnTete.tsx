@@ -1,7 +1,7 @@
-import { ActionIcon, Menu, Tooltip } from "@mantine/core";
+import { ActionIcon, Menu } from "@mantine/core";
 import type { ReactNode } from "react";
 
-export type Rubrique = "saisie" | "historique" | "logements";
+export type Rubrique = "saisie" | "historique" | "logements" | "tarifs";
 
 export interface Compte {
   /** Adresse de l'admin connecté, ou `null` en mode local (sans compte). */
@@ -20,30 +20,21 @@ const RUBRIQUES: { cle: Rubrique; nom: string }[] = [
   { cle: "saisie", nom: "Cycle en cours" },
   { cle: "historique", nom: "Historique" },
   { cle: "logements", nom: "Logements" },
+  { cle: "tarifs", nom: "Tarifs" },
 ];
-const A_VENIR = ["Tarifs"];
 
 export function EnTete({ actif, naviguer, droite, compte }: Props) {
   return (
     <header className="pj-entete">
       <div className="pj-marque">
         <i aria-hidden />
-        <span>
-          <span className="long">PARTAGE </span>JIRAMA
-        </span>
+        <span>ZARAOO</span>
       </div>
       <nav className="pj-nav pj-libelle">
         {RUBRIQUES.map((r) => (
           <button key={r.cle} type="button" data-actif={actif === r.cle || undefined} onClick={() => naviguer?.(r.cle)}>
             {r.nom}
           </button>
-        ))}
-        {A_VENIR.map((nom) => (
-          <Tooltip key={nom} label="Bientôt disponible">
-            <button type="button" disabled>
-              {nom}
-            </button>
-          </Tooltip>
         ))}
       </nav>
       {droite && <div className="pj-entete-droite">{droite}</div>}

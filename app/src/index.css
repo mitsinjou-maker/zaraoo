@@ -567,6 +567,64 @@ body {
 .pj-pastille[data-valide] {
   background: var(--ok);
 }
+.pj-badge-estimee {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  color: var(--alerte);
+  background: var(--alerte-fond);
+  border: 1px solid var(--alerte-trait);
+  vertical-align: 1px;
+}
+
+/* ------------------------------------------------------------- Tarifs */
+.pj-grilles {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.pj-liste-grilles {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--trait);
+  background: var(--surface);
+}
+.pj-liste-grilles button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--trait);
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.pj-liste-grilles button:last-child {
+  border-bottom: 0;
+}
+.pj-liste-grilles button[data-actif] {
+  background: var(--encre);
+  color: var(--papier);
+}
+.pj-liste-grilles button[data-actif] .pj-gris {
+  color: var(--gris-clair);
+}
+.pj-cadre {
+  min-width: 0;
+  border: 1px solid var(--trait);
+  background: var(--surface);
+  padding: 16px;
+}
+@media (max-width: 760px) {
+  .pj-grilles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 /* ------------------------------------------------------ Écran de répartition */
 .pj-seg {
@@ -1047,8 +1105,5 @@ body {
   }
   .pj-seulement-mobile {
     display: flex !important;
-  }
-  .pj-marque .long {
-    display: none;
   }
 }

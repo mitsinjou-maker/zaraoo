@@ -14,7 +14,7 @@ describe("export", () => {
     const lignes = csv.trim().split("\r\n");
     expect(lignes).toHaveLength(1 + 5);
     expect(lignes[1]).toBe(
-      "Septembre 2026;26/08/2026;25/09/2026;200462,80;Foyer A;L01;30;20,00;4,00;24,00;8160,00;428,40;4489,85;915,65;13994,00;non;01/10/2026",
+      "Septembre 2026;26/08/2026;25/09/2026;200462,80;Foyer A;L01;30;20,00;4,00;24,00;8160,00;428,40;4489,85;915,65;13994,00;non;01/10/2026;non;0,00;13994,00",
     );
     expect(lignes[4]).toContain(";Foyer D;L04;12;18,00;1,60;19,60;");
   });
@@ -28,7 +28,7 @@ describe("export", () => {
   it("produit une sauvegarde complète, cycles du plus ancien au plus récent", () => {
     const autre = { ...structuredClone(cycle), id: "x", dateFin: "2026-08-25" };
     const s = sauvegarde([cycle, autre], b, new Date("2026-10-02T00:00:00Z"));
-    expect(s.application).toBe("partage-jirama");
+    expect(s.application).toBe("zaraoo");
     expect(s.cycles.map((c) => c.id)).toEqual(["x", cycle.id]);
     expect(s.brouillon).toBe(b);
   });

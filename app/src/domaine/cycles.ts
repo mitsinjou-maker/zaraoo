@@ -1,5 +1,6 @@
 import type { ResultatCycle } from "@partage-jirama/moteur";
 import { nouvelId, relevesVides, type BrouillonCycle } from "./brouillon";
+import { PARAMETRES_SAISIS_PAR_DEFAUT, type ParametresSaisis } from "./reglages";
 
 /** Cycle validé : brouillon et résultat figés, tels qu'ils étaient au moment de la validation. */
 export interface CycleValide {
@@ -11,10 +12,14 @@ export interface CycleValide {
   kwh: number;
   totalFacture: number;
   nbFoyers: number;
+  /** Validé sur une facture estimée par la JIRAMA : le cycle suivant le régularise. */
+  estimee?: boolean;
   /** Date et heure de validation (ISO). */
   valideLe: string;
   /** Même instant en millisecondes : les règles Firestore s'en servent pour limiter l'annulation. */
   valideLeMs: number;
+  /** Règles de répartition en vigueur lors de la validation. */
+  parametres?: ParametresSaisis;
   brouillon: BrouillonCycle;
   resultat: ResultatCycle;
 }
@@ -27,7 +32,12 @@ export function resumer(c: CycleValide): ResumeCycle {
 }
 
 /** Fige le cycle en cours. Le résultat doit être valide (`ok`). */
-export function figerCycle(b: BrouillonCycle, resultat: ResultatCycle, maintenant = new Date()): CycleValide {
+export function figerCycle(
+  b: BrouillonCycle,
+  resultat: ResultatCycle,
+  maintenant = new Date(),
+  parametres: ParametresSaisis = PARAMETRES_SAISIS_PAR_DEFAUT,
+): CycleValide {
   if (!resultat.ok || !b.facture.dateDebut || !b.facture.dateFin) {
     throw new Error("Seul un cycle complet et sans erreur peut être validé.");
   }
@@ -40,8 +50,10 @@ export function figerCycle(b: BrouillonCycle, resultat: ResultatCycle, maintenan
     kwh: resultat.facture?.kwh ?? 0,
     totalFacture: resultat.controleFacture?.totalSaisi ?? 0,
     nbFoyers: resultat.participants.length,
+    estimee: b.facture.estimee,
     valideLe: maintenant.toISOString(),
     valideLeMs: maintenant.getTime(),
+    parametres: { ...parametres },
     brouillon: structuredClone(b),
     resultat: structuredClone(resultat),
   };
@@ -66,29 +78,64 @@ export function peutEtreAnnule(cycle: ResumeCycle, plusRecentId: string | undefi
  * Prépare le brouillon du cycle suivant : il commence où le cycle validé s'arrête (date et index du
  * compteur JIRAMA, index de chaque sous-compteur) et reprend les logements, le tarif et les occupants
  * encore présents.
+ *
+ * Si le cycle a été validé sur une facture estimée, le suivant est une **régularisation** : la
+ * prochaine facture réelle de la JIRAMA repart du dernier index réel, donc le brouillon repart du
+ * début du cycle estimé, et chaque foyer sera crédité de ce qu'il a payé pour ce cycle.
  */
-export function brouillonSuivant(b: BrouillonCycle): BrouillonCycle {
+export function brouillonSuivant(b: BrouillonCycle, cycle?: CycleValide): BrouillonCycle {
+  const regulariser = b.facture.estimee && cycle !== undefined;
   const fin = b.facture.dateFin;
+  const debut = regulariser ? b.facture.dateDebut : fin;
   return {
     version: 1,
     exemple: false,
     facture: {
       numero: "",
       mois: "",
-      dateDebut: fin,
+      dateDebut: debut,
       dateFin: null,
-      indexDebut: b.facture.indexFin,
+      indexDebut: regulariser ? b.facture.indexDebut : b.facture.indexFin,
       indexFin: null,
       coefficientTranche: b.facture.coefficientTranche,
       puissanceKw: b.facture.puissanceKw,
       estimee: false,
       totalSaisi: null,
+      deductionEstimee: regulariser ? cycle.totalFacture : null,
+      regularisation: regulariser
+        ? {
+            cycleId: cycle.id,
+            mois: cycle.mois,
+            totalEstime: cycle.totalFacture,
+            credits: cycle.resultat.participants.map((p) => ({
+              occupantId: p.occupantId,
+              nom: p.nom ?? p.occupantId,
+              montant: p.totalArrondi,
+            })),
+          }
+        : null,
     },
     tarif: structuredClone(b.tarif),
     logements: structuredClone(b.logements),
-    occupations: b.occupations.filter((o) => o.sortie === null || (fin !== null && o.sortie > fin)).map((o) => ({ ...o })),
+    occupations: b.occupations
+      .filter((o) => o.sortie === null || (debut !== null && o.sortie > debut))
+      .map((o) => ({ ...o })),
     releves: Object.fromEntries(
-      b.logements.map((l) => [l.id, { ...relevesVides(), indexDebut: b.releves[l.id]?.indexFin ?? null }]),
+      b.logements.map((l) => {
+        const r = b.releves[l.id];
+        // Une régularisation reprend les relevés du cycle estimé (début, déménagements, remplacement).
+        return [
+          l.id,
+          regulariser
+            ? {
+                ...relevesVides(),
+                indexDebut: r?.indexDebut ?? null,
+                intermediaires: { ...(r?.intermediaires ?? {}) },
+                remplacement: r?.remplacement ? { ...r.remplacement } : null,
+              }
+            : { ...relevesVides(), indexDebut: r?.indexFin ?? null },
+        ];
+      }),
     ),
     parametres: { forcerFacture: false, forcerEcart: false },
   };

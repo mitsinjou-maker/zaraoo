@@ -6,16 +6,19 @@ import { brouillonSuivant, figerCycle, peutEtreAnnule, type CycleValide } from "
 import { empreinte } from "../domaine/empreinte";
 import type { Depot } from "../donnees/depot";
 import { useBrouillon } from "../hooks/useBrouillon";
+import { useReglages } from "../hooks/useReglages";
 import { Historique } from "./Historique";
 import { Logements } from "./Logements";
 import { RepartitionCycle } from "./RepartitionCycle";
 import { SaisieCycle } from "./SaisieCycle";
+import { Tarifs } from "./Tarifs";
 
 type Vue =
   | { type: "saisie" }
   | { type: "repartition" }
   | { type: "historique" }
   | { type: "logements" }
+  | { type: "tarifs" }
   | { type: "archive"; id: string };
 
 function Attente({ texte }: { texte: string }) {
@@ -30,7 +33,11 @@ function Attente({ texte }: { texte: string }) {
 /** Écrans de l'admin connecté (ou du mode local) : saisie, répartition, historique. */
 export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte }) {
   const { brouillon, etat, erreur, modifier, remplacer, enregistreA } = useBrouillon(depot);
-  const analyse = useMemo(() => (brouillon ? analyserBrouillon(brouillon) : null), [brouillon]);
+  const { reglages, etat: etatReglages, erreur: erreurReglages, enregistrer: enregistrerReglages } = useReglages(depot);
+  const analyse = useMemo(
+    () => (brouillon && reglages ? analyserBrouillon(brouillon, reglages.parametres) : null),
+    [brouillon, reglages],
+  );
   const [vue, setVue] = useState<Vue>({ type: "saisie" });
 
   // Chaque changement d'écran repart du haut de la page.
@@ -40,11 +47,11 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
 
   const naviguer = (r: Rubrique) => setVue({ type: r });
 
-  if (etat === "erreur") {
+  if (etat === "erreur" || etatReglages === "erreur") {
     return (
       <div className="pj-plein-ecran">
         <Alert color="red" variant="light" radius={0} maw={480}>
-          Impossible de charger les données : {erreur}
+          Impossible de charger les données : {etat === "erreur" ? erreur : erreurReglages}
         </Alert>
         <Button variant="default" onClick={() => window.location.reload()}>
           Réessayer
@@ -52,13 +59,27 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
       </div>
     );
   }
-  if (!brouillon || !analyse) return <Attente texte="Chargement du cycle en cours" />;
+  if (!brouillon || !reglages || !analyse) return <Attente texte="Chargement du cycle en cours" />;
+
+  if (vue.type === "tarifs") {
+    return (
+      <Tarifs
+        reglages={reglages}
+        enregistrer={enregistrerReglages}
+        brouillon={brouillon}
+        modifier={modifier}
+        naviguer={naviguer}
+        compte={compte}
+      />
+    );
+  }
 
   if (vue.type === "historique") {
     return (
       <Historique
         depot={depot}
         brouillon={brouillon}
+        reglages={reglages}
         naviguer={naviguer}
         ouvrir={(id) => setVue({ type: "archive", id })}
         compte={compte}
@@ -89,8 +110,8 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
 
   if (vue.type === "repartition" && analyse.resultat?.ok) {
     const valider = async () => {
-      const cycle = figerCycle(brouillon, analyse.resultat!);
-      const suivant = brouillonSuivant(brouillon);
+      const cycle = figerCycle(brouillon, analyse.resultat!, new Date(), analyse.parametres);
+      const suivant = brouillonSuivant(brouillon, cycle);
       await depot.validerCycle(cycle, suivant);
       remplacer(suivant, true);
       setVue({ type: "archive", id: cycle.id });
@@ -110,6 +131,7 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
     <SaisieCycle
       brouillon={brouillon}
       analyse={analyse}
+      reglages={reglages}
       modifier={modifier}
       remplacer={remplacer}
       enregistreA={enregistreA}
@@ -152,8 +174,12 @@ function CycleArchive({ depot, id, brouillonEnCours, apresAnnulation, naviguer, 
     };
   }, [depot, id]);
 
-  // Occupations recalculées depuis le brouillon figé, résultat repris tel qu'il a été validé.
-  const analyse = useMemo(() => (cycle ? { ...analyserBrouillon(cycle.brouillon), resultat: cycle.resultat } : null), [cycle]);
+  // Occupations recalculées depuis le brouillon figé (avec les règles de sa validation), résultat
+  // repris tel qu'il a été validé.
+  const analyse = useMemo(
+    () => (cycle ? { ...analyserBrouillon(cycle.brouillon, cycle.parametres), resultat: cycle.resultat } : null),
+    [cycle],
+  );
 
   if (erreur || cycle === null) {
     return (
@@ -172,7 +198,7 @@ function CycleArchive({ depot, id, brouillonEnCours, apresAnnulation, naviguer, 
   const annulation = peutEtreAnnule(cycle, plusRecentId)
     ? {
         // La saisie du cycle suivant a-t-elle avancé depuis la validation ?
-        saisiePerdue: empreinte(brouillonEnCours) !== empreinte(brouillonSuivant(cycle.brouillon)),
+        saisiePerdue: empreinte(brouillonEnCours) !== empreinte(brouillonSuivant(cycle.brouillon, cycle)),
         annuler: async () => {
           await depot.annulerValidation(cycle);
           apresAnnulation(cycle.brouillon);

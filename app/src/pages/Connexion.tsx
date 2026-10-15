@@ -61,7 +61,7 @@ export function Connexion() {
       <form className="pj-connexion-boite" onSubmit={seConnecter}>
         <div className="pj-marque" style={{ border: 0, padding: 0, marginBottom: 6 }}>
           <i aria-hidden />
-          PARTAGE JIRAMA
+          ZARAOO
         </div>
         <p className="pj-aide" style={{ margin: "0 0 20px" }}>
           Répartition de la facture JIRAMA entre les foyers. Accès réservé à l'administrateur.

@@ -6,6 +6,7 @@ import { ResumeFacture } from "../composants/repartition/ResumeFacture";
 import { TableauRepartition } from "../composants/repartition/TableauRepartition";
 import type { Analyse, BrouillonCycle } from "../domaine/brouillon";
 import { aPayer, dateFr, kwh, montant, pourcent } from "../domaine/format";
+import { bilanRegularisation } from "../domaine/regularisation";
 import { foyersDuCycle, trierFoyers, type FoyerAffiche, type Tri } from "../domaine/repartition";
 import type { Depot } from "../donnees/depot";
 import { telechargerFiches } from "../pdf/fiches";
@@ -54,7 +55,9 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
   const avertissements = resultat.diagnostics.filter((d) => d.niveau === "avertissement");
   const t = resultat.totaux!;
   const ecart = resultat.ecart!;
-  const ctx = { brouillon, resultat };
+  const bilan = useMemo(() => bilanRegularisation(brouillon, resultat), [brouillon, resultat]);
+  const ctx = { brouillon, resultat, bilan };
+  const estimee = brouillon.facture.estimee;
 
   const exporter = async (cible: FoyerAffiche[], cle: string) => {
     setExport(cle);
@@ -121,6 +124,8 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
           <span>/</span>
           <b>Répartition</b>
           {brouillon.exemple && <Badge color="orange">Données d'exemple</Badge>}
+          {estimee && <Badge color="orange">Facture estimée</Badge>}
+          {bilan && <Badge color="blue">Régularisation</Badge>}
         </div>
 
         {mode.type === "brouillon" ? (
@@ -166,6 +171,17 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
               </Button>
             )}
           </div>
+        )}
+
+        {bilan && (
+          <Alert color="blue" variant="light" radius={0} mb="lg" title={`Régularisation de la facture estimée de ${bilan.regularisation.mois}`}>
+            Les parts couvrent les deux périodes, avec les vrais index. Les foyers ont déjà payé{" "}
+            {aPayer(bilan.sommeCredits)} Ar pour {bilan.regularisation.mois} : ils ne paient que la différence,{" "}
+            <b>{aPayer(bilan.sommeNets)} Ar</b> au total
+            {bilan.creditsSansParticipant.length > 0 &&
+              ` (hors ${bilan.creditsSansParticipant.map((c) => `${c.nom}, ${aPayer(c.montant)} Ar`).join(" ; ")} : à régler à part)`}
+            .
+          </Alert>
         )}
 
         <ResumeFacture brouillon={brouillon} resultat={resultat} />
@@ -221,6 +237,10 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
                 kwhMax={kwhMax}
                 telecharger={() => exporter([f], f.participant.occupantId)}
                 voirSiSeul={() => setComparaison(f)}
+                regularisation={(() => {
+                  const n = bilan?.parFoyer.get(f.participant.occupantId);
+                  return n && bilan ? { ...n, mois: bilan.regularisation.mois } : undefined;
+                })()}
               />
             ))}
             {videsVisibles.map((v) => (
@@ -228,7 +248,7 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
             ))}
           </div>
         ) : (
-          <TableauRepartition foyers={visibles} vides={videsVisibles} resultat={resultat} complet={filtre === "tous"} />
+          <TableauRepartition foyers={visibles} vides={videsVisibles} resultat={resultat} complet={filtre === "tous"} bilan={bilan} />
         )}
       </main>
 
@@ -241,6 +261,7 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
           <span>{resultat.controleFacture?.coherent ? "Facture vérifiée" : "Facture acceptée telle quelle"}</span>
           <span>Écart {pourcent(ecart.ecartRelatif)}</span>
           <span>Σ réparti = {aPayer(t.totalArrondi)} Ar</span>
+          {bilan && <span>Net = {aPayer(bilan.sommeNets)} Ar</span>}
         </div>
         <span>{kwh(t.kwh)} kWh répartis</span>
       </footer>
@@ -276,10 +297,18 @@ export function RepartitionCycle({ brouillon, analyse, mode, naviguer, compte }:
           Le cycle <b>{brouillon.facture.mois || "en cours"}</b> sera <b>figé</b> : les {resultat.participants.length} parts (
           {aPayer(t.totalArrondi)} Ar au total) ne pourront plus être modifiées.
         </p>
-        <p>
-          Le cycle suivant sera préparé automatiquement : il commencera le {dateFr(brouillon.facture.dateFin)}{" "}
-          avec les derniers index relevés, les mêmes logements et les occupants encore présents.
-        </p>
+        {estimee ? (
+          <p>
+            <b>Facture estimée :</b> le cycle suivant sera une régularisation. Il repartira du dernier index réel (le{" "}
+            {dateFr(brouillon.facture.dateDebut)}) pour couvrir les deux périodes, et chaque foyer y sera crédité de ce qu'il
+            paie maintenant.
+          </p>
+        ) : (
+          <p>
+            Le cycle suivant sera préparé automatiquement : il commencera le {dateFr(brouillon.facture.dateFin)}{" "}
+            avec les derniers index relevés, les mêmes logements et les occupants encore présents.
+          </p>
+        )}
         {mode.type === "brouillon" && mode.lieu === "navigateur" && (
           <Alert color="orange" variant="light" radius={0} mb="sm">
             Mode local : le cycle validé est rangé dans ce navigateur seulement.

@@ -1,17 +1,20 @@
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, writeBatch, type Firestore } from "firebase/firestore";
 import type { BrouillonCycle } from "../domaine/brouillon";
 import { resumer, type CycleValide } from "../domaine/cycles";
+import type { Reglages } from "../domaine/reglages";
 import type { Depot } from "./depot";
 
 /**
  * Données de l'admin dans Firestore :
  * - `utilisateurs/{uid}/brouillon/courant` : le cycle en cours de saisie ;
+ * - `utilisateurs/{uid}/reglages/courant` : grilles tarifaires et règles de répartition ;
  * - `utilisateurs/{uid}/cycles/{id}` : les cycles validés ; les règles de sécurité interdisent de les
  *   modifier, et de les supprimer plus de 30 jours après la validation.
  */
 export function depotFirebase(db: Firestore, uid: string): Depot {
   const refBrouillon = doc(db, "utilisateurs", uid, "brouillon", "courant");
   const refCycles = collection(db, "utilisateurs", uid, "cycles");
+  const refReglages = doc(db, "utilisateurs", uid, "reglages", "courant");
 
   return {
     lieu: "firebase",
@@ -45,6 +48,13 @@ export function depotFirebase(db: Firestore, uid: string): Depot {
       lot.set(doc(refCycles, cycle.id), cycle);
       lot.set(refBrouillon, suivant);
       await lot.commit();
+    },
+    async chargerReglages() {
+      const s = await getDoc(refReglages);
+      return s.exists() ? (s.data() as Reglages) : null;
+    },
+    async enregistrerReglages(reglages) {
+      await setDoc(refReglages, reglages);
     },
     async annulerValidation(cycle) {
       // Les règles n'autorisent la suppression que dans les 30 jours qui suivent la validation.

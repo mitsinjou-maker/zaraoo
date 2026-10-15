@@ -8,6 +8,7 @@ import { SectionOccupants } from "../composants/SectionOccupants";
 import { SectionReleves } from "../composants/SectionReleves";
 import { brouillonVierge, type Analyse, type BrouillonCycle } from "../domaine/brouillon";
 import { brouillonExemple } from "../domaine/exemple";
+import { grilleEnVigueur, tarifDeGrille, type Reglages } from "../domaine/reglages";
 import type { Depot } from "../donnees/depot";
 
 function etapes(analyse: Analyse): Etape[] {
@@ -48,6 +49,7 @@ function etapes(analyse: Analyse): Etape[] {
 interface Props {
   brouillon: BrouillonCycle;
   analyse: Analyse;
+  reglages: Reglages;
   modifier: (m: (b: BrouillonCycle) => void) => void;
   remplacer: (b: BrouillonCycle) => void;
   enregistreA: Date | null;
@@ -108,7 +110,7 @@ export function SaisieCycle(props: Props) {
 
         <div className="pj-disposition">
           <div>
-            <SectionFacture brouillon={brouillon} analyse={analyse} modifier={modifier} />
+            <SectionFacture brouillon={brouillon} analyse={analyse} reglages={props.reglages} modifier={modifier} />
             <SectionOccupants brouillon={brouillon} analyse={analyse} modifier={modifier} />
             <SectionReleves brouillon={brouillon} analyse={analyse} modifier={modifier} />
           </div>
@@ -135,7 +137,11 @@ export function SaisieCycle(props: Props) {
           <Button
             color="red"
             onClick={() => {
-              remplacer(confirmation === "vierge" ? brouillonVierge() : brouillonExemple());
+              if (confirmation === "vierge") {
+                // Un brouillon vierge part de la grille tarifaire la plus récente.
+                const grille = grilleEnVigueur(props.reglages, null);
+                remplacer({ ...brouillonVierge(), ...(grille ? { tarif: tarifDeGrille(grille) } : {}) });
+              } else remplacer(brouillonExemple());
               setConfirmation(null);
             }}
           >

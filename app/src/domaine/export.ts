@@ -1,22 +1,32 @@
 import type { BrouillonCycle } from "./brouillon";
 import type { CycleValide } from "./cycles";
+import { bilanRegularisation } from "./regularisation";
+import type { Reglages } from "./reglages";
 
 /** Sauvegarde complète : tous les cycles validés et le cycle en cours, réimportables tels quels. */
 export interface Sauvegarde {
-  application: "partage-jirama";
+  application: "zaraoo";
   version: 1;
   exporteLe: string;
   cycles: CycleValide[];
   brouillon: BrouillonCycle | null;
+  /** Grilles tarifaires et règles de répartition. */
+  reglages: Reglages | null;
 }
 
-export function sauvegarde(cycles: CycleValide[], brouillon: BrouillonCycle | null, maintenant = new Date()): Sauvegarde {
+export function sauvegarde(
+  cycles: CycleValide[],
+  brouillon: BrouillonCycle | null,
+  maintenant = new Date(),
+  reglages: Reglages | null = null,
+): Sauvegarde {
   return {
-    application: "partage-jirama",
+    application: "zaraoo",
     version: 1,
     exporteLe: maintenant.toISOString(),
     cycles: [...cycles].sort((a, b) => a.dateFin.localeCompare(b.dateFin)),
     brouillon,
+    reglages,
   };
 }
 
@@ -47,12 +57,17 @@ export function tableauCsv(cycles: CycleValide[]): string {
     "À payer (Ar)",
     "Estimé",
     "Validé le",
+    "Facture estimée",
+    "Déjà payé sur facture estimée (Ar)",
+    "Net à payer (Ar)",
   ];
   const lignes = [...cycles]
     .sort((a, b) => a.dateFin.localeCompare(b.dateFin))
-    .flatMap((c) =>
-      c.resultat.participants.map((p) =>
-        [
+    .flatMap((c) => {
+      const bilan = bilanRegularisation(c.brouillon, c.resultat);
+      return c.resultat.participants.map((p) => {
+        const regul = bilan?.parFoyer.get(p.occupantId);
+        return [
           c.mois,
           date(c.dateDebut),
           date(c.dateFin),
@@ -70,9 +85,12 @@ export function tableauCsv(cycles: CycleValide[]): string {
           nombre(p.totalArrondi, 2),
           p.estime ? "oui" : "non",
           date(c.valideLe.slice(0, 10)),
-        ].map(cellule),
-      ),
-    );
+          c.estimee ? "oui" : "non",
+          nombre(regul?.credit ?? 0, 2),
+          nombre(regul?.net ?? p.totalArrondi, 2),
+        ].map(cellule);
+      });
+    });
   return "﻿" + [entetes.map(cellule), ...lignes].map((l) => l.join(";")).join("\r\n") + "\r\n";
 }
 

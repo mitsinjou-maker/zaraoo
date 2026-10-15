@@ -1,6 +1,7 @@
 import { Table } from "@mantine/core";
 import type { ResultatCycle } from "@partage-jirama/moteur";
 import { aPayer, kwh, montant } from "../../domaine/format";
+import type { BilanRegularisation } from "../../domaine/regularisation";
 import type { FoyerAffiche, LogementVide } from "../../domaine/repartition";
 import { PastilleLogement } from "../Section";
 
@@ -10,11 +11,14 @@ interface Props {
   resultat: ResultatCycle;
   /** Vrai quand tous les foyers sont affichés : la ligne de total correspond alors à la facture. */
   complet: boolean;
+  /** Cycle de régularisation : colonnes « Déjà payé » et « Net ». */
+  bilan?: BilanRegularisation | null;
 }
 
 /** Vue « Tableau » : une ligne par foyer, totaux en bas. */
-export function TableauRepartition({ foyers, vides, resultat, complet }: Props) {
+export function TableauRepartition({ foyers, vides, resultat, complet, bilan }: Props) {
   const nbTranches = resultat.facture?.tranches.length ?? 0;
+  const net = (occupantId: string) => bilan?.parFoyer.get(occupantId);
   const t = resultat.totaux!;
   const e = resultat.ecart!;
   const somme = (f: (x: FoyerAffiche) => number) => foyers.reduce((s, x) => s + f(x), 0);
@@ -40,7 +44,13 @@ export function TableauRepartition({ foyers, vides, resultat, complet }: Props) 
             <Table.Th className="r">Fixes</Table.Th>
             <Table.Th className="r">Franchise</Table.Th>
             <Table.Th className="r">TVA</Table.Th>
-            <Table.Th className="r">À payer</Table.Th>
+            <Table.Th className="r">{bilan ? "Part" : "À payer"}</Table.Th>
+            {bilan && (
+              <>
+                <Table.Th className="r">Déjà payé</Table.Th>
+                <Table.Th className="r">Net</Table.Th>
+              </>
+            )}
             <Table.Th className="r">Ar/kWh</Table.Th>
           </Table.Tr>
         </Table.Thead>
@@ -70,9 +80,17 @@ export function TableauRepartition({ foyers, vides, resultat, complet }: Props) 
               <Table.Td className="r">{montant(p.totalFraisFixes)}</Table.Td>
               <Table.Td className="r">{montant(p.franchiseTva)}</Table.Td>
               <Table.Td className="r">{montant(p.tva)}</Table.Td>
-              <Table.Td className="r" fw={700}>
+              <Table.Td className="r" fw={bilan ? undefined : 700}>
                 {aPayer(p.totalArrondi)}
               </Table.Td>
+              {bilan && (
+                <>
+                  <Table.Td className="r">{aPayer(net(p.occupantId)?.credit ?? 0)}</Table.Td>
+                  <Table.Td className="r" fw={700}>
+                    {aPayer(net(p.occupantId)?.net ?? p.totalArrondi)}
+                  </Table.Td>
+                </>
+              )}
               <Table.Td className="r">{kwh(p.prixMoyenKwh)}</Table.Td>
             </Table.Tr>
           ))}
@@ -84,7 +102,7 @@ export function TableauRepartition({ foyers, vides, resultat, complet }: Props) 
               <Table.Td className="nom">Logement vide</Table.Td>
               <Table.Td className="r">0</Table.Td>
               <Table.Td className="r">{v.kwhReleves !== null ? `(${kwh(v.kwhReleves)})` : "—"}</Table.Td>
-              <Table.Td colSpan={nbTranches + 9} className="pj-gris">
+              <Table.Td colSpan={nbTranches + (bilan ? 11 : 9)} className="pj-gris">
                 Consommation comptée dans l'écart
               </Table.Td>
             </Table.Tr>
@@ -108,6 +126,14 @@ export function TableauRepartition({ foyers, vides, resultat, complet }: Props) 
               <Table.Td className="r">{montant(somme((x) => x.participant.franchiseTva))}</Table.Td>
               <Table.Td className="r">{montant(somme((x) => x.participant.tva))}</Table.Td>
               <Table.Td className="r">{aPayer(complet ? t.totalArrondi : somme((x) => x.participant.totalArrondi))}</Table.Td>
+              {bilan && (
+                <>
+                  <Table.Td className="r">{aPayer(somme((x) => net(x.participant.occupantId)?.credit ?? 0))}</Table.Td>
+                  <Table.Td className="r">
+                    {aPayer(somme((x) => net(x.participant.occupantId)?.net ?? x.participant.totalArrondi))}
+                  </Table.Td>
+                </>
+              )}
               <Table.Td />
             </Table.Tr>
           )}

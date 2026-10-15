@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { EnTete, type Compte, type Rubrique } from "../composants/EnTete";
 import type { BrouillonCycle } from "../domaine/brouillon";
 import type { ResumeCycle } from "../domaine/cycles";
+import type { Reglages } from "../domaine/reglages";
 import { sauvegarde, tableauCsv, telecharger } from "../domaine/export";
 import { aPayer, dateFr, entier } from "../domaine/format";
 import type { Depot } from "../donnees/depot";
@@ -10,13 +11,14 @@ import type { Depot } from "../donnees/depot";
 interface Props {
   depot: Depot;
   brouillon: BrouillonCycle;
+  reglages: Reglages;
   naviguer: (r: Rubrique) => void;
   ouvrir: (id: string) => void;
   compte: Compte;
 }
 
 /** Liste des cycles validés, du plus récent au plus ancien. */
-export function Historique({ depot, brouillon, naviguer, ouvrir, compte }: Props) {
+export function Historique({ depot, brouillon, reglages, naviguer, ouvrir, compte }: Props) {
   const [cycles, setCycles] = useState<ResumeCycle[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [export_, setExport] = useState<"csv" | "json" | null>(null);
@@ -28,9 +30,9 @@ export function Historique({ depot, brouillon, naviguer, ouvrir, compte }: Props
       const tous = await depot.chargerTousLesCycles();
       const jour = new Date().toISOString().slice(0, 10);
       if (format === "csv") {
-        telecharger(`partage-jirama-${jour}.csv`, tableauCsv(tous), "text/csv;charset=utf-8");
+        telecharger(`zaraoo-${jour}.csv`, tableauCsv(tous), "text/csv;charset=utf-8");
       } else {
-        telecharger(`partage-jirama-sauvegarde-${jour}.json`, JSON.stringify(sauvegarde(tous, brouillon), null, 2), "application/json");
+        telecharger(`zaraoo-sauvegarde-${jour}.json`, JSON.stringify(sauvegarde(tous, brouillon, new Date(), reglages), null, 2), "application/json");
       }
     } catch (e) {
       setErreur(e instanceof Error ? e.message : String(e));
@@ -120,7 +122,14 @@ export function Historique({ depot, brouillon, naviguer, ouvrir, compte }: Props
               <Table.Tbody>
                 {cycles.map((c) => (
                   <Table.Tr key={c.id}>
-                    <Table.Td className="mois">{c.mois}</Table.Td>
+                    <Table.Td className="mois">
+                      {c.mois}
+                      {c.estimee && (
+                        <span className="pj-badge-estimee pj-libelle" title="Facture estimée par la JIRAMA, régularisée au cycle suivant">
+                          Estimée
+                        </span>
+                      )}
+                    </Table.Td>
                     <Table.Td>
                       {dateFr(c.dateDebut)} → {dateFr(c.dateFin)}
                     </Table.Td>

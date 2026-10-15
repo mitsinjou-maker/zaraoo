@@ -1,6 +1,6 @@
-# Partage JIRAMA
+# Zaraoo
 
-Répartition de la facture d'un compteur JIRAMA entre les foyers d'un bâtiment équipés de sous-compteurs.
+Zaraoo (nom de code du dépôt : `partage-jirama`) : répartition de la facture d'un compteur JIRAMA entre les foyers d'un bâtiment équipés de sous-compteurs.
 Règles de calcul : [SPECIFICATION.md](SPECIFICATION.md).
 
 ## Organisation
@@ -52,10 +52,19 @@ npm run test:regles
   et sauvegarde complète (.json) ; la dernière validation peut être annulée dans les 30 jours.
 - **Logements** (`app/src/pages/Logements.tsx`) — code, description, n° de sous-compteur, couleur ; ajout, modification,
   suppression d'un logement sans occupant.
+- **Tarifs** (`app/src/pages/Tarifs.tsx`) — grilles tarifaires datées (tranches, frais fixes, taxes, TVA), la grille en
+  vigueur à la date de la facture est proposée au cycle en cours ; règles de répartition (seuils d'écart, tolérances,
+  arrondi).
+
+Cas particuliers (§8 de la spécification) :
+- **facture estimée** : le cycle est validé normalement ; le suivant est une régularisation qui repart du dernier index
+  réel, et chaque foyer y est crédité de ce qu'il a payé (`app/src/domaine/regularisation.ts`) ;
+- **remplacement d'un sous-compteur** : bouton « Compteur remplacé ? » dans les relevés ; les index du nouveau compteur
+  sont ramenés sur l'échelle de l'ancien.
 
 Données (`app/src/donnees`) :
 - **avec Firebase** (`app/.env.local` rempli, voir [docs/FIREBASE.md](docs/FIREBASE.md)) : connexion de l'admin,
-  brouillon et cycles dans Firestore, synchronisés entre ordinateur et téléphone ;
+  brouillon, réglages et cycles dans Firestore, synchronisés entre ordinateur et téléphone ;
 - **sans configuration** : mode local, tout reste dans le navigateur.
 
 Au premier lancement, le cycle en cours est rempli avec les données fictives du §6 de la spécification ;

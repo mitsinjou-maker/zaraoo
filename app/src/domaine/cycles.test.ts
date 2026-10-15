@@ -3,6 +3,7 @@ import { analyserBrouillon } from "./brouillon";
 import { brouillonSuivant, figerCycle, peutEtreAnnule, resumer } from "./cycles";
 import { empreinte } from "./empreinte";
 import { brouillonExemple } from "./exemple";
+import { PARAMETRES_SAISIS_PAR_DEFAUT } from "./reglages";
 
 describe("figerCycle", () => {
   const b = brouillonExemple();
@@ -20,8 +21,10 @@ describe("figerCycle", () => {
       kwh: 310,
       totalFacture: 200462.8,
       nbFoyers: 5,
+      estimee: false,
       valideLe: "2026-10-01T08:00:00.000Z",
       valideLeMs: Date.parse("2026-10-01T08:00:00Z"),
+      parametres: PARAMETRES_SAISIS_PAR_DEFAUT,
     });
     // Copie indépendante : modifier le brouillon ensuite ne change pas le cycle figé.
     b.facture.mois = "modifié";
