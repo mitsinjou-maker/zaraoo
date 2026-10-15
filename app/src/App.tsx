@@ -4,7 +4,7 @@ import { useSession } from "./hooks/useSession";
 import { Connexion } from "./pages/Connexion";
 import { theme } from "./theme";
 
-// Espace admin chargé après la connexion seulement.
+// Espace admin chargé après la connexion (ou l'entrée en mode essai) seulement.
 const Espace = lazy(() => import("./pages/Espace"));
 
 function Chargement() {
@@ -16,7 +16,7 @@ function Chargement() {
 }
 
 function Contenu() {
-  const session = useSession();
+  const { session, commencerEssai } = useSession();
 
   if (session.mode === "local") {
     return (
@@ -25,8 +25,15 @@ function Contenu() {
       </Suspense>
     );
   }
+  if (session.mode === "essai") {
+    return (
+      <Suspense fallback={<Chargement />}>
+        <Espace key="essai" uid={null} essai compte={{ email: null, essai: { quitter: session.quitter } }} />
+      </Suspense>
+    );
+  }
   if (session.etat === "chargement") return <Chargement />;
-  if (session.etat === "deconnecte") return <Connexion />;
+  if (session.etat === "deconnecte") return <Connexion commencerEssai={commencerEssai} />;
   return (
     <Suspense fallback={<Chargement />}>
       <Espace

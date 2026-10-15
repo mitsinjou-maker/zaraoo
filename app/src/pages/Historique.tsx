@@ -80,14 +80,18 @@ export function Historique({ depot, brouillon, reglages, naviguer, ouvrir, compt
           <span>Figés ; seule la dernière validation peut être annulée, dans les 30 jours</span>
         </div>
 
-        {cycles && cycles.length > 0 && (
+        {cycles && (cycles.length > 0 || depot.lieu === "navigateur") && (
           <div className="pj-outils" style={{ marginBottom: 12 }}>
             <span className="pj-aide" style={{ flex: 1, minWidth: 220 }}>
-              Gardez une copie sur votre ordinateur : Firebase ne fait pas de sauvegarde automatique avec l'offre gratuite.
+              {depot.lieu === "navigateur"
+                ? "Vos données ne sont que dans ce navigateur : exportez une sauvegarde pour les garder ou les transmettre."
+                : "Gardez une copie sur votre ordinateur : Firebase ne fait pas de sauvegarde automatique avec l'offre gratuite."}
             </span>
-            <Button variant="default" loading={export_ === "csv"} onClick={() => exporter("csv")}>
-              Tableau Excel (.csv)
-            </Button>
+            {cycles.length > 0 && (
+              <Button variant="default" loading={export_ === "csv"} onClick={() => exporter("csv")}>
+                Tableau Excel (.csv)
+              </Button>
+            )}
             <Button loading={export_ === "json"} onClick={() => exporter("json")}>
               Sauvegarde complète (.json)
             </Button>

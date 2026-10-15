@@ -29,10 +29,6 @@ export interface Depot {
   enregistrerReglages(reglages: Reglages): Promise<void>;
 }
 
-const CLE_BROUILLON = "partage-jirama:brouillon-cycle";
-const CLE_CYCLES = "partage-jirama:cycles";
-const CLE_REGLAGES = "partage-jirama:reglages";
-
 function lire<T>(cle: string): T | null {
   try {
     const brut = localStorage.getItem(cle);
@@ -50,44 +46,69 @@ function ecrire(cle: string, valeur: unknown) {
   }
 }
 
-/** Dépôt sans compte : tout reste dans ce navigateur. */
-export const depotLocal: Depot = {
-  lieu: "navigateur",
-  async chargerBrouillon() {
-    const b = lire<BrouillonCycle>(CLE_BROUILLON);
-    return b?.version === 1 ? b : null;
-  },
-  async enregistrerBrouillon(brouillon) {
-    ecrire(CLE_BROUILLON, brouillon);
-  },
-  async listerCycles() {
-    return (lire<CycleValide[]>(CLE_CYCLES) ?? []).map(resumer).sort((a, b) => b.dateFin.localeCompare(a.dateFin));
-  },
-  async dernierCycleId() {
-    return (await this.listerCycles())[0]?.id;
-  },
-  async chargerCycle(id) {
-    return (lire<CycleValide[]>(CLE_CYCLES) ?? []).find((c) => c.id === id) ?? null;
-  },
-  async chargerTousLesCycles() {
-    return lire<CycleValide[]>(CLE_CYCLES) ?? [];
-  },
-  async validerCycle(cycle, suivant) {
-    ecrire(CLE_CYCLES, [...(lire<CycleValide[]>(CLE_CYCLES) ?? []), cycle]);
-    ecrire(CLE_BROUILLON, suivant);
-  },
-  async annulerValidation(cycle) {
-    ecrire(
-      CLE_CYCLES,
-      (lire<CycleValide[]>(CLE_CYCLES) ?? []).filter((c) => c.id !== cycle.id),
-    );
-    ecrire(CLE_BROUILLON, cycle.brouillon);
-  },
-  async chargerReglages() {
-    const r = lire<Reglages>(CLE_REGLAGES);
-    return r?.version === 1 ? r : null;
-  },
-  async enregistrerReglages(reglages) {
-    ecrire(CLE_REGLAGES, reglages);
-  },
-};
+const cles = (prefixe: string) => ({
+  brouillon: `${prefixe}:brouillon-cycle`,
+  cycles: `${prefixe}:cycles`,
+  reglages: `${prefixe}:reglages`,
+});
+
+/** Dépôt sans compte : tout reste dans ce navigateur, sous des clés commençant par `prefixe`. */
+export function creerDepotLocal(prefixe: string): Depot {
+  const cle = cles(prefixe);
+  const cycles = () => lire<CycleValide[]>(cle.cycles) ?? [];
+  const lister = async () => cycles().map(resumer).sort((a, b) => b.dateFin.localeCompare(a.dateFin));
+  return {
+    lieu: "navigateur",
+    async chargerBrouillon() {
+      const b = lire<BrouillonCycle>(cle.brouillon);
+      return b?.version === 1 ? b : null;
+    },
+    async enregistrerBrouillon(brouillon) {
+      ecrire(cle.brouillon, brouillon);
+    },
+    listerCycles: lister,
+    async dernierCycleId() {
+      return (await lister())[0]?.id;
+    },
+    async chargerCycle(id) {
+      return cycles().find((c) => c.id === id) ?? null;
+    },
+    async chargerTousLesCycles() {
+      return cycles();
+    },
+    async validerCycle(cycle, suivant) {
+      ecrire(cle.cycles, [...cycles(), cycle]);
+      ecrire(cle.brouillon, suivant);
+    },
+    async annulerValidation(cycle) {
+      ecrire(
+        cle.cycles,
+        cycles().filter((c) => c.id !== cycle.id),
+      );
+      ecrire(cle.brouillon, cycle.brouillon);
+    },
+    async chargerReglages() {
+      const r = lire<Reglages>(cle.reglages);
+      return r?.version === 1 ? r : null;
+    },
+    async enregistrerReglages(reglages) {
+      ecrire(cle.reglages, reglages);
+    },
+  };
+}
+
+/** Supprime de ce navigateur toutes les données d'un dépôt local. */
+export function effacerDepotLocal(prefixe: string): void {
+  try {
+    for (const c of Object.values(cles(prefixe))) localStorage.removeItem(c);
+  } catch {
+    // Stockage indisponible : rien n'a été enregistré.
+  }
+}
+
+/** Mode local du développement (sans configuration Firebase). */
+export const depotLocal = creerDepotLocal("partage-jirama");
+
+/** Mode essai, sans compte, sur le site en ligne : séparé des autres données du navigateur. */
+export const PREFIXE_ESSAI = "zaraoo-essai";
+export const depotEssai = creerDepotLocal(PREFIXE_ESSAI);

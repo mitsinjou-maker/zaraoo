@@ -23,8 +23,11 @@ function messageErreur(e: unknown): string {
   }
 }
 
-/** Connexion de l'admin (compte créé dans la console Firebase, pas d'inscription depuis l'application). */
-export function Connexion() {
+/**
+ * Connexion (comptes créés dans la console Firebase, pas d'inscription depuis l'application), ou
+ * essai sans compte : les données restent alors dans le navigateur.
+ */
+export function Connexion({ commencerEssai }: { commencerEssai: () => void }) {
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [enCours, setEnCours] = useState(false);
@@ -64,7 +67,8 @@ export function Connexion() {
           ZARAOO
         </div>
         <p className="pj-aide" style={{ margin: "0 0 20px" }}>
-          Répartition de la facture JIRAMA entre les foyers. Accès réservé à l'administrateur.
+          Répartition de la facture JIRAMA entre les foyers d'un bâtiment. Connectez-vous avec le compte qui vous a été
+          créé, ou essayez sans compte.
         </p>
         <Stack gap="sm">
           <TextInput
@@ -99,6 +103,15 @@ export function Connexion() {
             Mot de passe oublié ?
           </Button>
         </Stack>
+        <div className="pj-essai">
+          <Button variant="default" fullWidth onClick={commencerEssai}>
+            Essayer sans compte
+          </Button>
+          <p className="pj-aide">
+            Rien n'est envoyé en ligne : vos saisies restent dans ce navigateur, sur cet appareil. Exportez une sauvegarde
+            (Historique) pour les conserver. Sur un ordinateur partagé, effacez-les en quittant l'essai.
+          </p>
+        </div>
       </form>
     </div>
   );

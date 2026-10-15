@@ -91,6 +91,30 @@ npm run deployer
 L'application est alors disponible à l'adresse `https://<votre-projet>.web.app`
 (les étapes `firebase login` et `firebase use --add` de l'étape 5 sont nécessaires une fois).
 
+## 8. Donner accès à d'autres personnes
+
+**Inscription fermée.** Dans **Authentication** → **Paramètres** → **Actions utilisateur**, décochez
+**Activer la création (inscription)** : seuls les comptes que vous créez peuvent se connecter. Sans cela,
+n'importe qui pourrait créer un compte avec la clé publique de l'application et consommer le quota gratuit.
+
+**Essai sans compte.** Sur la page de connexion, le bouton « Essayer sans compte » ouvre l'application avec
+des données d'exemple. Tout reste dans le navigateur de la personne : rien n'est envoyé à Firebase, aucun
+quota n'est consommé. Pour garder ses données, elle exporte une sauvegarde depuis l'historique ; sur un
+ordinateur partagé, elle les efface en quittant l'essai (menu ☰).
+
+**Compte pour un utilisateur régulier** (données synchronisées entre ses appareils) :
+
+1. **Authentication** → onglet **Utilisateurs** → **Ajouter un utilisateur** → son adresse e-mail et un
+   mot de passe provisoire.
+2. Transmettez-lui l'adresse du site ; à la première connexion, il choisit son propre mot de passe avec
+   « Mot de passe oublié ? ».
+3. Ses données sont rangées sous son propre identifiant : les règles de sécurité l'empêchent de voir les
+   vôtres, et vous empêchent de voir les siennes depuis l'application.
+
+Pour retirer l'accès : **Utilisateurs** → menu ⋮ de la ligne → **Désactiver le compte** (ses données sont
+conservées) ou **Supprimer le compte**. Le quota gratuit (environ 20 000 écritures par jour) est partagé
+entre tous les comptes : largement suffisant pour quelques personnes.
+
 ---
 
 ## Développer sans toucher au vrai projet : les émulateurs
@@ -125,5 +149,7 @@ npm run test:regles
 
 | Chemin Firestore | Contenu | Règle |
 |---|---|---|
-| `utilisateurs/{uid}/brouillon/courant` | cycle en cours de saisie | lecture et écriture par l'admin |
-| `utilisateurs/{uid}/cycles/{id}` | cycle validé : brouillon et résultat figés | création ; jamais de modification ; suppression (annulation de la validation) seulement dans les 30 jours qui suivent |
+| `utilisateurs/{uid}/brouillon/courant` | cycle en cours de saisie | lecture et écriture par le titulaire du compte |
+| `utilisateurs/{uid}/reglages/courant` | grilles tarifaires et règles de répartition | lecture et écriture par le titulaire du compte |
+| `utilisateurs/{uid}/cycles/{id}` | cycle validé : brouillon et résultat figés | création (date de validation à moins d'une heure de l'heure du serveur) ; jamais de modification ; suppression (annulation de la validation) seulement dans les 30 jours qui suivent |
+| `utilisateurs/{uid}/resumes/{id}` | résumé d'un cycle validé, pour l'historique | créé avec son cycle et fidèle à celui-ci ; jamais modifié ; supprimé seulement avec lui |
