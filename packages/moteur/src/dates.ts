@@ -24,6 +24,11 @@ export function estDateValide(date: DateISO): boolean {
   }
 }
 
+/** 2026-09-25 → 25/09/2026, pour les messages affichés à l'admin. */
+export function dateFr(date: DateISO): string {
+  return date.split("-").reverse().join("/");
+}
+
 /** Nombre de jours de `de` à `a` (négatif si `a` est avant `de`). */
 export function joursEntre(de: DateISO, a: DateISO): number {
   return numeroJour(a) - numeroJour(de);

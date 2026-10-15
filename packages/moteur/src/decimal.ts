@@ -19,6 +19,13 @@ export function somme(valeurs: Decimal[]): Decimal {
   return valeurs.reduce((acc, v) => acc.plus(v), ZERO);
 }
 
+/** Nombre au format français pour les messages : 200 462,80. */
+export function formatFr(d: Decimal, decimales: number): string {
+  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimales, maximumFractionDigits: decimales }).format(
+    d.toDecimalPlaces(decimales).toNumber(),
+  );
+}
+
 export function min(a: Decimal, b: Decimal): Decimal {
   return a.lessThan(b) ? a : b;
 }

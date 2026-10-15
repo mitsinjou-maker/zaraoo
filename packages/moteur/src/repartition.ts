@@ -1,6 +1,6 @@
 import { arrondirPlusFortReste } from "./arrondi";
 import { estDateValide, joursEntre } from "./dates";
-import { dec, somme, ZERO, type Dec } from "./decimal";
+import { dec, formatFr, somme, ZERO, type Dec } from "./decimal";
 import { calculerFactureInterne, versFactureCalculee } from "./facture";
 import { mesurerParticipants } from "./presence";
 import { partageSeriel } from "./seriel";
@@ -78,7 +78,7 @@ export function repartirCycle(entree: EntreeCycle): ResultatCycle {
     diagnostics.push({
       code: "FACTURE_INCOHERENTE",
       niveau: p.forcerFacture ? "avertissement" : "erreur",
-      message: `La facture saisie (${totalSaisi}) diffère de la facture recalculée (${facture.total}) de ${difference} Ar. Vérifiez les prix, la puissance souscrite ou une ligne oubliée.`,
+      message: `La facture saisie (${formatFr(totalSaisi, 2)} Ar) diffère de la facture recalculée (${formatFr(facture.total, 2)} Ar) de ${formatFr(difference, 2)} Ar. Vérifiez les prix, la puissance souscrite ou une ligne oubliée.`,
     });
   }
 
@@ -111,7 +111,7 @@ export function repartirCycle(entree: EntreeCycle): ResultatCycle {
     ecartRelatif: ecartRelatif.toNumber(),
     mode: proportionnel ? "proportionnel" : "egal",
   };
-  const pourcent = ecartRelatif.times(100).toDecimalPlaces(1).toString().replace(".", ",");
+  const pourcent = formatFr(ecartRelatif.times(100), 1);
   if (ecartRelatif.greaterThan(p.seuilEcartPositif)) {
     diagnostics.push({
       code: "ECART_ELEVE",

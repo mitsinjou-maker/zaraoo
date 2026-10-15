@@ -31,6 +31,14 @@ npm run typecheck
 npm run dev
 ```
 
+## Application
+
+Écran disponible : **saisie d'un cycle** (`app/src/pages/SaisieCycle.tsx`) — facture JIRAMA recalculée en direct,
+occupants (arrivées, départs), relevés des sous-compteurs et panneau de contrôle alimenté par le moteur.
+
+Pour l'instant, le brouillon est enregistré dans le navigateur (`app/src/donnees/depot.ts`) ; Firebase remplacera
+cette couche sans toucher aux écrans. Au premier lancement, l'écran est rempli avec les données fictives du §6.
+
 ## Moteur de calcul
 
 Point d'entrée : `repartirCycle(entree)` dans `packages/moteur/src/repartition.ts`.

@@ -1,5 +1,5 @@
-import { dec, somme, ZERO, type Dec } from "./decimal";
-import { estDateValide, joursEntre, numeroJour } from "./dates";
+import { dec, formatFr, somme, ZERO, type Dec } from "./decimal";
+import { dateFr, estDateValide, joursEntre, numeroJour } from "./dates";
 import type { DateISO, Diagnostic, Occupation, RelevesLogement } from "./types";
 
 export interface ParticipantMesure {
@@ -64,7 +64,7 @@ export function mesurerParticipants(
         diagnostics.push({
           code: "RELEVE_DATE_DECALEE",
           niveau: tolere ? "info" : "avertissement",
-          message: `Logement ${r.logementId} : relevé du ${releve.date}, à ${decalage} jour(s) de la date de la facture (${borne})${tolere ? ", toléré" : ""}.`,
+          message: `Logement ${r.logementId} : relevé du ${dateFr(releve.date)}, à ${decalage} jour${decalage > 1 ? "s" : ""} de la date de la facture (${dateFr(borne)})${tolere ? ", toléré" : ""}.`,
           logementId: r.logementId,
         });
       }
@@ -205,7 +205,7 @@ export function mesurerParticipants(
       diagnostics.push({
         code: "CONSOMMATION_NON_ATTRIBUEE",
         niveau: "info",
-        message: `Logement ${logementId} : ${nonAttribue.toString()} kWh relevés sans occupant, comptés dans l'écart.`,
+        message: `Logement ${logementId} : ${formatFr(nonAttribue, 1)} kWh relevés sans occupant, comptés dans l'écart.`,
         logementId,
       });
     }
