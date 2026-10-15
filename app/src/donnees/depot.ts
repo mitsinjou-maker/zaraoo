@@ -15,6 +15,8 @@ export interface Depot {
   ecouterBrouillon?(rappel: (brouillon: BrouillonCycle) => void): () => void;
   /** Cycles validés, du plus récent au plus ancien. */
   listerCycles(): Promise<ResumeCycle[]>;
+  /** Identifiant du cycle validé le plus récent (seul celui-là peut être annulé). */
+  dernierCycleId(): Promise<string | undefined>;
   chargerCycle(id: string): Promise<CycleValide | null>;
   /** Tous les cycles validés, complets (pour l'export). */
   chargerTousLesCycles(): Promise<CycleValide[]>;
@@ -60,6 +62,9 @@ export const depotLocal: Depot = {
   },
   async listerCycles() {
     return (lire<CycleValide[]>(CLE_CYCLES) ?? []).map(resumer).sort((a, b) => b.dateFin.localeCompare(a.dateFin));
+  },
+  async dernierCycleId() {
+    return (await this.listerCycles())[0]?.id;
   },
   async chargerCycle(id) {
     return (lire<CycleValide[]>(CLE_CYCLES) ?? []).find((c) => c.id === id) ?? null;

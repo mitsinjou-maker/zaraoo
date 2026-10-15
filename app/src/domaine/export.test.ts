@@ -25,6 +25,15 @@ describe("export", () => {
     expect(tableauCsv([c]).split("\r\n")[1].startsWith('"Sept; 2026";')).toBe(true);
   });
 
+  it("empêche Excel d'exécuter un nom saisi comme une formule", () => {
+    const c = structuredClone(cycle);
+    c.resultat.participants[0].nom = '=HYPERLINK("http://exemple.test")';
+    const ligne = tableauCsv([c]).split("\r\n")[1];
+    expect(ligne).toContain(`;"'=HYPERLINK(""http://exemple.test"")";`);
+    // Les montants négatifs restent des nombres.
+    expect(ligne).not.toContain("'-");
+  });
+
   it("produit une sauvegarde complète, cycles du plus ancien au plus récent", () => {
     const autre = { ...structuredClone(cycle), id: "x", dateFin: "2026-08-25" };
     const s = sauvegarde([cycle, autre], b, new Date("2026-10-02T00:00:00Z"));

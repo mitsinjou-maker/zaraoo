@@ -4,7 +4,8 @@ rules_version = '2';
 // - utilisateurs/{uid}/brouillon/courant : cycle en cours de saisie (lecture et écriture libres pour l'admin) ;
 // - utilisateurs/{uid}/reglages/courant  : grilles tarifaires et règles de répartition (idem) ;
 // - utilisateurs/{uid}/cycles/{id}       : cycles validés, figés. Jamais modifiés ; supprimés seulement pour
-//                                          annuler une validation, dans les 30 jours qui la suivent.
+//                                          annuler une validation, dans les 30 jours qui la suivent ;
+// - utilisateurs/{uid}/resumes/{id}      : résumé de chaque cycle validé, pour l'historique.
 service cloud.firestore {
   match /databases/{database}/documents {
     function estAdmin(uid) {
@@ -23,15 +24,38 @@ service cloud.firestore {
 
       match /cycles/{cycleId} {
         allow read: if estAdmin(uid);
+        // La date de validation vient de l'appareil : elle doit être proche de l'heure du serveur (± 1 h,
+        // pour tolérer une horloge mal réglée), sinon elle permettrait de prolonger le délai d'annulation.
         allow create: if estAdmin(uid)
           && request.resource.data.id == cycleId
           && request.resource.data.version == 1
           && request.resource.data.resultat.ok == true
-          && request.resource.data.valideLeMs is int;
+          && request.resource.data.valideLeMs is int
+          && math.abs(request.resource.data.valideLeMs - request.time.toMillis()) < 3600000;
         allow update: if false;
         allow delete: if estAdmin(uid)
           && resource.data.valideLeMs is int
           && request.time < timestamp.value(resource.data.valideLeMs) + duration.value(30, 'd');
+      }
+
+      // Résumé d'un cycle validé, pour l'historique : créé avec son cycle (ou après, pour les cycles
+      // plus anciens), fidèle à celui-ci, jamais modifié, supprimé seulement avec lui.
+      match /resumes/{cycleId} {
+        function cycleApres() {
+          return getAfter(/databases/$(database)/documents/utilisateurs/$(uid)/cycles/$(cycleId));
+        }
+        allow read: if estAdmin(uid);
+        allow create: if estAdmin(uid)
+          && existsAfter(/databases/$(database)/documents/utilisateurs/$(uid)/cycles/$(cycleId))
+          && request.resource.data.id == cycleId
+          && request.resource.data.dateFin == cycleApres().data.dateFin
+          && request.resource.data.totalFacture == cycleApres().data.totalFacture
+          && request.resource.data.valideLeMs == cycleApres().data.valideLeMs
+          && !('brouillon' in request.resource.data)
+          && !('resultat' in request.resource.data);
+        allow update: if false;
+        allow delete: if estAdmin(uid)
+          && !existsAfter(/databases/$(database)/documents/utilisateurs/$(uid)/cycles/$(cycleId));
       }
     }
   }

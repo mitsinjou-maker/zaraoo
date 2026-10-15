@@ -2,7 +2,7 @@ import { Alert, Button, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { FirebaseError } from "firebase/app";
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
 import { useState, type FormEvent } from "react";
-import { firebase } from "../firebase/config";
+import { firebaseAuth } from "../firebase/config";
 
 function messageErreur(e: unknown): string {
   const code = e instanceof FirebaseError ? e.code : "";
@@ -37,7 +37,7 @@ export function Connexion() {
     setErreur(null);
     setInfo(null);
     try {
-      await signInWithEmailAndPassword(firebase().auth, email.trim(), motDePasse);
+      await signInWithEmailAndPassword(firebaseAuth(), email.trim(), motDePasse);
     } catch (err) {
       setErreur(messageErreur(err));
     } finally {
@@ -49,7 +49,7 @@ export function Connexion() {
     setErreur(null);
     setInfo(null);
     try {
-      await sendPasswordResetEmail(firebase().auth, email.trim());
+      await sendPasswordResetEmail(firebaseAuth(), email.trim());
       setInfo("Si ce compte existe, un e-mail de réinitialisation vient d'être envoyé.");
     } catch (err) {
       setErreur(messageErreur(err));

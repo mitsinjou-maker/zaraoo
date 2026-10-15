@@ -67,6 +67,13 @@ Données (`app/src/donnees`) :
   brouillon, réglages et cycles dans Firestore, synchronisés entre ordinateur et téléphone ;
 - **sans configuration** : mode local, tout reste dans le navigateur.
 
+Chaque cycle validé a aussi un petit résumé (`resumes/{id}`) : l'historique s'affiche sans télécharger les cycles
+complets. Les résumés des cycles plus anciens sont créés automatiquement à la première ouverture de l'historique.
+
+Hébergement (`firebase.json`) : en-têtes de sécurité (CSP limitée aux serveurs Firebase utilisés, refus d'affichage
+dans une iframe), `index.html` jamais mis en cache, fichiers `assets/` en cache un an. L'émulateur Hosting
+n'applique pas ces en-têtes : à vérifier sur le site en ligne après une modification.
+
 Au premier lancement, le cycle en cours est rempli avec les données fictives du §6 de la spécification ;
 elles ne peuvent pas être validées.
 

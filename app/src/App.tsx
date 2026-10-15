@@ -1,46 +1,47 @@
 import { Loader, MantineProvider } from "@mantine/core";
-import { DatesProvider } from "@mantine/dates";
-import "dayjs/locale/fr";
-import { useMemo } from "react";
-import { depotLocal } from "./donnees/depot";
-import { depotFirebase } from "./donnees/depotFirebase";
-import { firebase } from "./firebase/config";
+import { lazy, Suspense } from "react";
 import { useSession } from "./hooks/useSession";
 import { Connexion } from "./pages/Connexion";
-import { EspaceAdmin } from "./pages/EspaceAdmin";
 import { theme } from "./theme";
+
+// Espace admin chargé après la connexion seulement.
+const Espace = lazy(() => import("./pages/Espace"));
+
+function Chargement() {
+  return (
+    <div className="pj-plein-ecran">
+      <Loader color="dark" size="sm" />
+    </div>
+  );
+}
 
 function Contenu() {
   const session = useSession();
-  const uid = session.mode === "firebase" && session.etat === "connecte" ? session.utilisateur.uid : null;
-  const depot = useMemo(() => (uid ? depotFirebase(firebase().db, uid) : depotLocal), [uid]);
 
   if (session.mode === "local") {
-    return <EspaceAdmin depot={depot} compte={{ email: null }} />;
-  }
-  if (session.etat === "chargement") {
     return (
-      <div className="pj-plein-ecran">
-        <Loader color="dark" size="sm" />
-      </div>
+      <Suspense fallback={<Chargement />}>
+        <Espace uid={null} compte={{ email: null }} />
+      </Suspense>
     );
   }
+  if (session.etat === "chargement") return <Chargement />;
   if (session.etat === "deconnecte") return <Connexion />;
   return (
-    <EspaceAdmin
-      key={session.utilisateur.uid}
-      depot={depot}
-      compte={{ email: session.utilisateur.email, deconnecter: () => void session.deconnecter() }}
-    />
+    <Suspense fallback={<Chargement />}>
+      <Espace
+        key={session.utilisateur.uid}
+        uid={session.utilisateur.uid}
+        compte={{ email: session.utilisateur.email, deconnecter: () => void session.deconnecter() }}
+      />
+    </Suspense>
   );
 }
 
 function App() {
   return (
     <MantineProvider theme={theme} forceColorScheme="light">
-      <DatesProvider settings={{ locale: "fr", firstDayOfWeek: 1 }}>
-        <Contenu />
-      </DatesProvider>
+      <Contenu />
     </MantineProvider>
   );
 }

@@ -28,9 +28,17 @@ const donneesCycle = (id = "2026-09-25-abc", ok = true, valideLeMs: number | str
   id,
   version: 1,
   mois: "Septembre 2026",
+  dateFin: "2026-09-25",
+  totalFacture: 200462.8,
   valideLeMs,
   resultat: { ok },
 });
+/** Résumé tel que l'application l'écrit : le cycle sans brouillon ni résultat. */
+const resumeDe = (c: ReturnType<typeof donneesCycle>) => {
+  const { resultat: _r, ...resume } = c;
+  return resume;
+};
+const resume = (db: ReturnType<typeof admin>, id = "2026-09-25-abc", uid = "admin") => db.doc(`utilisateurs/${uid}/resumes/${id}`);
 
 /** Place un cycle directement en base, sans passer par les règles (pour simuler un cycle ancien). */
 async function placer(donnees: ReturnType<typeof donneesCycle>) {
@@ -94,6 +102,41 @@ describe("cycles validés", () => {
     await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", false)));
     await assertFails(cycle(admin(), "autre-id").set(donneesCycle("2026-09-25-abc")));
     await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", true, "hier")));
+  });
+
+  it("refuse une date de validation éloignée de l'heure du serveur", async () => {
+    await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", true, Date.now() + 2 * 3_600_000)));
+    await assertFails(cycle(admin()).set(donneesCycle("2026-09-25-abc", true, Date.now() - 31 * JOUR)));
+    await assertSucceeds(cycle(admin()).set(donneesCycle("2026-09-25-abc", true, Date.now() - 10 * 60_000)));
+  });
+
+  it("le résumé est écrit avec son cycle, fidèle à celui-ci, et supprimé avec lui", async () => {
+    const c = donneesCycle();
+    const db = admin();
+    const lot = db.batch();
+    lot.set(cycle(db), c);
+    lot.set(resume(db), resumeDe(c));
+    await assertSucceeds(lot.commit());
+    await assertSucceeds(resume(db).get());
+    await assertFails(resume(autre(), c.id, "admin").get());
+    // Jamais modifié, jamais supprimé tant que le cycle existe.
+    await assertFails(resume(db).set({ ...resumeDe(c), mois: "autre" }));
+    await assertFails(resume(db).delete());
+    // Annulation : cycle et résumé supprimés ensemble.
+    const annulation = db.batch();
+    annulation.delete(cycle(db));
+    annulation.delete(resume(db));
+    await assertSucceeds(annulation.commit());
+  });
+
+  it("refuse un résumé sans cycle, infidèle ou contenant le cycle complet", async () => {
+    const c = donneesCycle();
+    await assertFails(resume(admin()).set(resumeDe(c))); // pas de cycle
+    await placer(c);
+    await assertFails(resume(admin()).set({ ...resumeDe(c), totalFacture: 1 }));
+    await assertFails(resume(admin()).set(c)); // résultat inclus
+    // Cycle validé avant l'existence des résumés : le résumé peut être ajouté après coup.
+    await assertSucceeds(resume(admin()).set(resumeDe(c)));
   });
 
   it("personne d'autre n'y a accès", async () => {

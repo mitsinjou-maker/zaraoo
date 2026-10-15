@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { firebase, firebaseConfigure } from "../firebase/config";
+import { firebaseAuth, firebaseConfigure } from "../firebase/config";
 
 export type Session =
   | { mode: "local" }
@@ -16,7 +16,7 @@ export function useSession(): Session {
 
   useEffect(() => {
     if (!firebaseConfigure) return;
-    const { auth } = firebase();
+    const auth = firebaseAuth();
     return onAuthStateChanged(auth, (utilisateur) =>
       setSession(
         utilisateur

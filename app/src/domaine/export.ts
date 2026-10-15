@@ -32,6 +32,8 @@ export function sauvegarde(
 
 const nombre = (n: number, decimales: number) => n.toFixed(decimales).replace(".", ",");
 const cellule = (v: string) => (/[;"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+/** Texte saisi : une apostrophe empêche Excel de lire « =… », « +… », « -… » ou « @… » comme une formule. */
+const texte = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
 const date = (iso: string) => iso.split("-").reverse().join("/");
 
 /**
@@ -68,12 +70,12 @@ export function tableauCsv(cycles: CycleValide[]): string {
       return c.resultat.participants.map((p) => {
         const regul = bilan?.parFoyer.get(p.occupantId);
         return [
-          c.mois,
+          texte(c.mois),
           date(c.dateDebut),
           date(c.dateFin),
           nombre(c.totalFacture, 2),
-          p.nom ?? p.occupantId,
-          p.logementIds.join(" "),
+          texte(p.nom ?? p.occupantId),
+          texte(p.logementIds.join(" ")),
           String(p.jours),
           nombre(p.kwhMesures, 2),
           nombre(p.partEcartKwh, 2),

@@ -1,5 +1,5 @@
 import { Alert, Button, Loader } from "@mantine/core";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Compte, Rubrique } from "../composants/EnTete";
 import { analyserBrouillon, type BrouillonCycle } from "../domaine/brouillon";
 import { brouillonSuivant, figerCycle, peutEtreAnnule, type CycleValide } from "../domaine/cycles";
@@ -7,11 +7,13 @@ import { empreinte } from "../domaine/empreinte";
 import type { Depot } from "../donnees/depot";
 import { useBrouillon } from "../hooks/useBrouillon";
 import { useReglages } from "../hooks/useReglages";
-import { Historique } from "./Historique";
-import { Logements } from "./Logements";
-import { RepartitionCycle } from "./RepartitionCycle";
 import { SaisieCycle } from "./SaisieCycle";
-import { Tarifs } from "./Tarifs";
+
+// Écrans secondaires chargés à la première ouverture ; la saisie, écran d'arrivée, reste dans ce module.
+const Historique = lazy(() => import("./Historique").then((m) => ({ default: m.Historique })));
+const Logements = lazy(() => import("./Logements").then((m) => ({ default: m.Logements })));
+const RepartitionCycle = lazy(() => import("./RepartitionCycle").then((m) => ({ default: m.RepartitionCycle })));
+const Tarifs = lazy(() => import("./Tarifs").then((m) => ({ default: m.Tarifs })));
 
 type Vue =
   | { type: "saisie" }
@@ -61,87 +63,99 @@ export function EspaceAdmin({ depot, compte }: { depot: Depot; compte: Compte })
   }
   if (!brouillon || !reglages || !analyse) return <Attente texte="Chargement du cycle en cours" />;
 
-  if (vue.type === "tarifs") {
-    return (
-      <Tarifs
-        reglages={reglages}
-        enregistrer={enregistrerReglages}
-        brouillon={brouillon}
-        modifier={modifier}
-        naviguer={naviguer}
-        compte={compte}
-      />
-    );
-  }
+  const ecran = (): ReactNode => {
+    if (vue.type === "tarifs") {
+      return (
+        <Tarifs
+          reglages={reglages}
+          enregistrer={enregistrerReglages}
+          brouillon={brouillon}
+          modifier={modifier}
+          naviguer={naviguer}
+          compte={compte}
+        />
+      );
+    }
 
-  if (vue.type === "historique") {
-    return (
-      <Historique
-        depot={depot}
-        brouillon={brouillon}
-        reglages={reglages}
-        naviguer={naviguer}
-        ouvrir={(id) => setVue({ type: "archive", id })}
-        compte={compte}
-      />
-    );
-  }
+    if (vue.type === "historique") {
+      return (
+        <Historique
+          depot={depot}
+          brouillon={brouillon}
+          reglages={reglages}
+          naviguer={naviguer}
+          ouvrir={(id) => setVue({ type: "archive", id })}
+          compte={compte}
+        />
+      );
+    }
 
-  if (vue.type === "logements") {
-    return <Logements brouillon={brouillon} modifier={modifier} naviguer={naviguer} compte={compte} />;
-  }
+    if (vue.type === "logements") {
+      return <Logements brouillon={brouillon} modifier={modifier} naviguer={naviguer} compte={compte} />;
+    }
 
-  if (vue.type === "archive") {
-    return (
-      <CycleArchive
-        key={vue.id}
-        depot={depot}
-        id={vue.id}
-        brouillonEnCours={brouillon}
-        apresAnnulation={(b) => {
-          remplacer(b, true);
-          setVue({ type: "saisie" });
-        }}
-        naviguer={naviguer}
-        compte={compte}
-      />
-    );
-  }
+    if (vue.type === "archive") {
+      return (
+        <CycleArchive
+          key={vue.id}
+          depot={depot}
+          id={vue.id}
+          brouillonEnCours={brouillon}
+          apresAnnulation={(b) => {
+            remplacer(b, true);
+            setVue({ type: "saisie" });
+          }}
+          naviguer={naviguer}
+          compte={compte}
+        />
+      );
+    }
 
-  if (vue.type === "repartition" && analyse.resultat?.ok) {
-    const valider = async () => {
-      const cycle = figerCycle(brouillon, analyse.resultat!, new Date(), analyse.parametres);
-      const suivant = brouillonSuivant(brouillon, cycle);
-      await depot.validerCycle(cycle, suivant);
-      remplacer(suivant, true);
-      setVue({ type: "archive", id: cycle.id });
-    };
+    if (vue.type === "repartition" && analyse.resultat?.ok) {
+      const valider = async () => {
+        const cycle = figerCycle(brouillon, analyse.resultat!, new Date(), analyse.parametres);
+        const suivant = brouillonSuivant(brouillon, cycle);
+        try {
+          await depot.validerCycle(cycle, suivant);
+        } catch (e) {
+          // Les règles Firestore refusent une date de validation à plus d'une heure de l'heure du serveur.
+          if ((e as { code?: string }).code === "permission-denied") {
+            throw new Error("refusée par le serveur. Vérifiez la date et l'heure de cet appareil, puis réessayez.");
+          }
+          throw e;
+        }
+        remplacer(suivant, true);
+        setVue({ type: "archive", id: cycle.id });
+      };
+      return (
+        <RepartitionCycle
+          brouillon={brouillon}
+          analyse={analyse}
+          mode={{ type: "brouillon", versSaisie: () => setVue({ type: "saisie" }), valider, lieu: depot.lieu }}
+          naviguer={naviguer}
+          compte={compte}
+        />
+      );
+    }
+
     return (
-      <RepartitionCycle
+      <SaisieCycle
         brouillon={brouillon}
         analyse={analyse}
-        mode={{ type: "brouillon", versSaisie: () => setVue({ type: "saisie" }), valider, lieu: depot.lieu }}
+        reglages={reglages}
+        modifier={modifier}
+        remplacer={remplacer}
+        enregistreA={enregistreA}
+        erreurEnregistrement={erreur}
+        lieu={depot.lieu}
+        versRepartition={() => setVue({ type: "repartition" })}
         naviguer={naviguer}
         compte={compte}
       />
     );
-  }
+  };
 
-  return (
-    <SaisieCycle
-      brouillon={brouillon}
-      analyse={analyse}
-      reglages={reglages}
-      modifier={modifier}
-      remplacer={remplacer}
-      enregistreA={enregistreA}
-      erreurEnregistrement={erreur}
-      lieu={depot.lieu}
-      versRepartition={() => setVue({ type: "repartition" })}
-      naviguer={naviguer}
-      compte={compte}
-    />
-  );
+  return <Suspense fallback={<Attente texte="Chargement" />}>{ecran()}</Suspense>;
 }
 
 interface PropsArchive {
@@ -162,11 +176,11 @@ function CycleArchive({ depot, id, brouillonEnCours, apresAnnulation, naviguer, 
 
   useEffect(() => {
     let actif = true;
-    Promise.all([depot.chargerCycle(id), depot.listerCycles()])
-      .then(([c, liste]) => {
+    Promise.all([depot.chargerCycle(id), depot.dernierCycleId()])
+      .then(([c, dernier]) => {
         if (!actif) return;
         setCycle(c);
-        setPlusRecentId(liste[0]?.id);
+        setPlusRecentId(dernier);
       })
       .catch((e: unknown) => actif && setErreur(e instanceof Error ? e.message : String(e)));
     return () => {

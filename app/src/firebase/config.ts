@@ -1,6 +1,11 @@
-import { initializeApp } from "firebase/app";
-import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
-import { connectFirestoreEmulator, initializeFirestore, type Firestore } from "firebase/firestore";
+import { initializeApp, type FirebaseApp } from "firebase/app";
+import {
+  browserLocalPersistence,
+  connectAuthEmulator,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  type Auth,
+} from "firebase/auth";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,20 +22,23 @@ export const firebaseConfigure = Boolean(config.apiKey && config.projectId);
 /** Vrai en développement avec les émulateurs Firebase (`npm run dev:emulateurs`). */
 export const avecEmulateurs = import.meta.env.VITE_FIREBASE_EMULATEURS === "1";
 
-let services: { auth: Auth; db: Firestore } | null = null;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
 
-export function firebase(): { auth: Auth; db: Firestore } {
+export function firebaseApp(): FirebaseApp {
   if (!firebaseConfigure) throw new Error("Firebase n'est pas configuré.");
-  if (!services) {
-    const app = initializeApp(config);
-    const auth = getAuth(app);
-    // Les champs facultatifs absents (undefined) ne sont pas acceptés par Firestore : on les ignore.
-    const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
-    if (avecEmulateurs) {
-      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-      connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    }
-    services = { auth, db };
+  app ??= initializeApp(config);
+  return app;
+}
+
+/**
+ * Authentification par e-mail et mot de passe uniquement : sans le module des fenêtres de connexion
+ * Google (popup / redirection), plus léger et sans iframe externe.
+ */
+export function firebaseAuth(): Auth {
+  if (!auth) {
+    auth = initializeAuth(firebaseApp(), { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+    if (avecEmulateurs) connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   }
-  return services;
+  return auth;
 }
